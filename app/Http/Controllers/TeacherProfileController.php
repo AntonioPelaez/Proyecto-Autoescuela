@@ -137,4 +137,45 @@ class TeacherProfileController extends Controller
 
         return redirect()->route('teachers.edit', $teacher)->with('success', 'Notas actualizadas');
     }
+
+    /**
+     * ASOCIAR ALUMNOS
+     */
+    /**
+     *  Mostrar alumnos disponibles 
+     */
+    public function students(TeacherProfile $teacher)
+    {
+        $availableStudents = StudentProfile::whereNull('teacher_id')->with('user')->get();
+        $assignedStudents = StudentProfile::where('teacher_id', $teacher->id)->with('user')->get();
+
+        return view('teachers.students', compact('teacher', 'availableStudents', 'assignedStudents'));
+    }
+
+    /**
+     * Asociar alumno al profesor
+     */
+    public function attachStudent(Request $request, TeacherProfile $teacher)
+    {
+        $request->validate([
+            'student_id' => 'required|exists:student_profiles,id'
+        ]);
+
+        $student = StudentProfile::find($request->student_id);
+        $student->teacher_id = $teacher->id;
+        $student->save();
+
+        return back()->with('success', 'Alumno asignado correctamente.');
+    }
+    /**
+     * Desasociar alumno del profesor
+     */
+    public function detachStudent(TeacherProfile $teacher, StudentProfile $student)
+    {
+        $student->teacher_id = null;
+        $student->save();
+
+        return back()->with('success', 'Alumno desasignado correctamente.');
+    }
+
 }

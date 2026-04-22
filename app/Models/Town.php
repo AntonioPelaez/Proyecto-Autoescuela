@@ -17,8 +17,9 @@ class Town extends Model
     ];
      
     /* Relaciones */
-    public function teachers(){
-        return $this->belongsToMany(TeacherProfile::class, 'teacher_towns');
+    public function teachers()
+    {
+        return $this->belongsToMany(TeacherProfile::class, 'teacher_town', 'town_id', 'teacher_id');
     }
     public function teacherAvailabilities(){
         return $this->hasMany(TeacherWeeklyAvailability::class);
