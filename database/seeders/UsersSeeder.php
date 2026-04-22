@@ -22,7 +22,7 @@ class UsersSeeder extends Seeder
             'surname2' => 'López',
             'email' => 'antoniopelaezguerrero8@gmail.com',
             'phone' => '123456789',
-            'password' => Hash::make('12345678'),
+            'password' => Hash::make('Anto1234.'),
             'is_active' => true,
             'last_login_at' => now(),
             'remember_token' => null,

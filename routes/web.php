@@ -5,6 +5,9 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\TeacherProfileController;
 use App\Http\Controllers\StudentProfileController;
 
+
+
+
 /*
 |--------------------------------------------------------------------------
 | Ruta principal de la aplicación
@@ -13,6 +16,19 @@ use App\Http\Controllers\StudentProfileController;
 Route::get('/', function () {
     return view('welcome');
 });
+Route::prefix('auth')->group(function () {
+    Route::view('/login', 'auth.login')->name('login');
+    Route::view('/register', 'auth.register')->name('register');
+    Route::view('/forgot-password', 'auth.forgot-password')->name('password.request');
+    Route::view('/reset-password', 'auth.reset-password')->name('password.reset');
+});
+/*
+|--------------------------------------------------------------------------
+| Rutas de autenticación
+|--------------------------------------------------------------------------
+| Estas rutas son generadas automáticamente por Laravel Breeze para manejar
+| el registro, inicio de sesión, recuperación de contraseña, etc.
+*/
 Route::prefix('auth')->group(function () {
     Route::view('/login', 'auth.login')->name('login');
     Route::view('/register', 'auth.register')->name('register');
@@ -71,5 +87,8 @@ Route::prefix('students')->name('students.')->group(function () {
     Route::get('/{student}/notes', [StudentProfileController::class, 'notes'])->name('notes');
     Route::put('/{student}/notes/save', [StudentProfileController::class, 'saveNotes'])->name('notes.save');
 });
+
+
+
 
 
