@@ -3,111 +3,129 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\Role; // Importamos el modelo Role
 use Illuminate\Http\Request;
 
 class UserController extends Controller
 {
     /**
-     * Muestra el listado de usuarios con búsqueda.
+     * LISTADO DE USUARIOS
+     * - Carga los roles con with('role')
+     * - Permite buscar por nombre, apellidos o email
      */
     public function index(Request $request)
     {
-        // Capturamos el texto de búsqueda
         $search = $request->input('search');
 
-        // Consulta con filtro por nombre o email
-        $users = User::when($search, function ($query, $search) {
-            return $query->where('name', 'LIKE', "%$search%")
-                         ->orWhere('email', 'LIKE', "%$search%");
-        })
-        ->orderBy('id', 'DESC')
-        ->paginate(10);
+        $users = User::with('role') // Cargamos el rol asociado
+            ->when($search, function ($query, $search) {
+                return $query->where('name', 'LIKE', "%{$search}%")
+                             ->orWhere('surname1', 'LIKE', "%{$search}%")
+                             ->orWhere('surname2', 'LIKE', "%{$search}%")
+                             ->orWhere('email', 'LIKE', "%{$search}%");
+            })
+            ->orderBy('id', 'DESC')
+            ->paginate(10);
 
-        // Retornamos la vista con los datos
         return view('users.index', compact('users', 'search'));
     }
 
     /**
-     * Muestra el formulario para crear un usuario.
+     * FORMULARIO DE CREACIÓN
+     * - Cargamos los roles para el select
      */
     public function create()
     {
-        return view('users.create');
+        $roles = Role::all();
+        return view('users.create', compact('roles'));
     }
 
     /**
-     * Guarda un nuevo usuario en la base de datos.
+     * GUARDAR USUARIO
+     * - Valida datos
+     * - Crea usuario
      */
     public function store(Request $request)
     {
-
-        // Validación de datos
         $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => 'required',
+            'surname1' => 'nullable',
+            'surname2' => 'nullable',
             'email' => 'required|email|unique:users,email',
-            'password' => 'required|min:6'
+            'phone' => 'nullable',
+            'role_id' => 'nullable|exists:roles,id',
+            'password' => 'required|min:6',
+            'is_active' => 'nullable|boolean',
         ]);
 
-        // Crear usuario
         User::create([
             'name' => $request->name,
+            'surname1' => $request->surname1,
+            'surname2' => $request->surname2,
             'email' => $request->email,
-            // Encriptamos la contraseña
-            'password' => bcrypt($request->password),
-            'email_verified_at' => $request->email_verified_at,
-            'remember_token' => $request->remember_token
+            'phone' => $request->phone,
+            'role_id' => $request->role_id,
+            'password' => $request->password, // Laravel lo hashea automáticamente
+            'is_active' => $request->is_active ? 1 : 0,
         ]);
 
-        // Redirigir al listado
-        return redirect()->route('users.index')
-                         ->with('success', 'Usuario creado correctamente');
+        return redirect()->route('users.index')->with('success', 'Usuario creado correctamente');
     }
 
     /**
-     * Muestra el formulario de edición.
+     * FORMULARIO DE EDICIÓN
+     * - Cargamos roles para el select
      */
     public function edit(User $user)
     {
-        return view('users.edit', compact('user'));
+        $roles = Role::all();
+        return view('users.edit', compact('user', 'roles'));
     }
 
     /**
-     * Actualiza un usuario existente.
+     * ACTUALIZAR USUARIO
+     * - Si se envía contraseña nueva, se actualiza
      */
     public function update(Request $request, User $user)
     {
-        // Validación
         $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => "required|email|unique:users,email,$user->id",
-            'password' => 'nullable|min:6'
+            'name' => 'required',
+            'surname1' => 'nullable',
+            'surname2' => 'nullable',
+            'email' => "required|email|unique:users,email,{$user->id}",
+            'phone' => 'nullable',
+            'role_id' => 'nullable|exists:roles,id',
+            'is_active' => 'nullable|boolean',
+            'password' => 'nullable|min:6',
         ]);
 
-        // Actualización de datos
-        $user->name = $request->name;
-        $user->email = $request->email;
-        $user->email_verified_at = $request->email_verified_at;
-        $user->remember_token = $request->remember_token;
+        // Actualizamos datos básicos
+        $user->update([
+            'name' => $request->name,
+            'surname1' => $request->surname1,
+            'surname2' => $request->surname2,
+            'email' => $request->email,
+            'phone' => $request->phone,
+            'role_id' => $request->role_id,
+            'is_active' => $request->is_active ? 1 : 0,
+        ]);
 
-        // Solo actualizamos contraseña si se envía
+        // Si se envía nueva contraseña → actualizarla
         if ($request->password) {
-            $user->password = bcrypt($request->password);
+            $user->update([
+                'password' => $request->password
+            ]);
         }
 
-        $user->save();
-
-        return redirect()->route('users.index')
-                         ->with('success', 'Usuario actualizado correctamente');
+        return redirect()->route('users.index')->with('success', 'Usuario actualizado correctamente');
     }
 
     /**
-     * Elimina un usuario.
+     * ELIMINAR USUARIO
      */
     public function destroy(User $user)
     {
         $user->delete();
-
-        return redirect()->route('users.index')
-                         ->with('success', 'Usuario eliminado correctamente');
+        return redirect()->route('users.index')->with('success', 'Usuario eliminado correctamente');
     }
 }

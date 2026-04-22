@@ -1,35 +1,19 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\UserController;
+use App\Http\Controllers\TeacherProfileController;
 
-/*
-|--------------------------------------------------------------------------
-| Ruta principal de la aplicación
-|--------------------------------------------------------------------------
-| Cuando el usuario entra a la raíz del proyecto ("/"), se muestra la vista
-| "welcome.blade.php". Esta es la pantalla inicial por defecto de Laravel.
-*/
-Route::get('/', function () {
-    return view('welcome');
+Route::prefix('teachers')->name('teachers.')->group(function () {
+
+    Route::get('/', [TeacherProfileController::class, 'index'])->name('index');
+
+    Route::get('/create', [TeacherProfileController::class, 'create'])->name('create');
+    Route::post('/store', [TeacherProfileController::class, 'store'])->name('store');
+
+    Route::get('/{teacher}/edit', [TeacherProfileController::class, 'edit'])->name('edit');
+    Route::put('/{teacher}/update', [TeacherProfileController::class, 'update'])->name('update');
+
+    Route::delete('/{teacher}/delete', [TeacherProfileController::class, 'destroy'])->name('delete');
+
+    Route::get('/{teacher}/notes', [TeacherProfileController::class, 'notes'])->name('notes');
+    Route::put('/{teacher}/notes/save', [TeacherProfileController::class, 'saveNotes'])->name('notes.save');
 });
-
-/*
-|--------------------------------------------------------------------------
-| Rutas CRUD para la tabla "users"
-|--------------------------------------------------------------------------
-| Route::resource genera automáticamente todas las rutas necesarias para un
-| CRUD completo:
-|
-| GET      /users            -> index   (listar usuarios)
-| GET      /users/create     -> create  (formulario de creación)
-| POST     /users            -> store   (guardar nuevo usuario)
-| GET      /users/{id}/edit  -> edit    (formulario de edición)
-| PUT      /users/{id}       -> update  (actualizar usuario)
-| DELETE   /users/{id}       -> destroy (eliminar usuario)
-|
-| Estas rutas están conectadas al UserController.
-*/
-Route::resource('users', UserController::class);
-
-
