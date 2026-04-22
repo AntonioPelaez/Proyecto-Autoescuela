@@ -34,8 +34,7 @@ return new class extends Migration
             $table->timestamp('paid_at')->nullable();
 
             // created_at / updated_at
-            $table->timestamps('created_at');
-            $table->timestamps('updated_at');
+            $table->timestamps();
 
             // Índice recomendado
             $table->index(['class_session_id', 'status']);

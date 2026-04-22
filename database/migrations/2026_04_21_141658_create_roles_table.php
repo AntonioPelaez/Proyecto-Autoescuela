@@ -15,8 +15,7 @@ return new class extends Migration
             $table->bigIncrements('id');
             $table->string('code',30);
             $table->string('name',80);
-            $table->timestamps('created_at');
-            $table->timestamps('updated_at');
+            $table->timestamps();
         });
     }
 

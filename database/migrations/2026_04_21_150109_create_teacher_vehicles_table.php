@@ -19,8 +19,7 @@ return new class extends Migration
             $table->dateTime('ends_at')->nullable();
             $table->boolean('is_primary');
             $table->index(['teacher_profile_id', 'is_primary']);
-            $table->timestamps('created_at');
-            $table->timestamps('updated_at');
+            $table->timestamps();
         });
     }
 

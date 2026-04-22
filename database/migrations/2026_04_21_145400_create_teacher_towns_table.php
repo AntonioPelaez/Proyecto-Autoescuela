@@ -16,8 +16,7 @@ return new class extends Migration
             $table->foreignId('teacher_profile_id')->references('id')->on('teacher_profiles')->onDelete('cascade');
             $table->foreignId('town_id')->references('id')->on('towns')->onDelete('cascade');
             $table->unique(['teacher_profile_id', 'town_id']);
-            $table->timestamps('created_at');
-            $table->timestamps('updated_at');
+            $table->timestamps();
         });
     }
 

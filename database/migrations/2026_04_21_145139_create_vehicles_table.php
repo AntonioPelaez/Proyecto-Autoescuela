@@ -18,8 +18,7 @@ return new class extends Migration
             $table->string('model',80)->nullable();
             $table->boolean('is_active')->default(true);
             $table->text('notes')->nullable();
-            $table->timestamps('created_at');
-            $table->timestamps('updated_at');
+            $table->timestamps();
         });
     }
 

@@ -16,8 +16,7 @@ return new class extends Migration
             $table->string('name',120);
             $table->string('postal_code',12)->nullable();
             $table->boolean('is_active')->default(true);
-            $table->timestamps('created_at');
-            $table->timestamps('updated_at');
+            $table->timestamps();
         });
     }
 

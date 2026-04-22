@@ -20,9 +20,8 @@ return new class extends Migration
             $table->time('end_time')->nullable();
             $table->string('type',20);
             $table->string('reason',150)->nullable();
-            $table->index(['teacher_profile_id', 'exception_date']);
-            $table->timestamps('created_at');
-            $table->timestamps('updated_at');
+            $table->index(['teacher_profile_id', 'exception_date'], 'idx_teacher_exception_date');
+            $table->timestamps();
         });
     }
 

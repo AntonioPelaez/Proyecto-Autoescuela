@@ -17,8 +17,7 @@ return new class extends Migration
             $table->string('dni',20)->nullable();
             $table->date('birth_date')->nullable();
             $table->string('pickup_notes',255)->nullable();
-            $table->timestamps('created_at');
-            $table->timestamps('updated_at');
+            $table->timestamps();
         });
     }
 

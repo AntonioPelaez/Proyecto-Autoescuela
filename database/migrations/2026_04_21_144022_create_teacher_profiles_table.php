@@ -18,8 +18,7 @@ return new class extends Migration
             $table->string('license_number',50)->nullable();
             $table->text('notes')->nullable();
             $table->boolean('is_active_for_booking')->default(true);
-            $table->timestamps('created_at');
-            $table->timestamps('updated_at');
+            $table->timestamps();
         });
     }
 

@@ -32,8 +32,7 @@ return new class extends Migration
             $table->index(['teacher_profile_id', 'session_date','status']);
             $table->index(['student_profile_id', 'session_date','status']);
             $table->index(['town_id', 'session_date','status']);
-            $table->timestamps('created_at');
-            $table->timestamps('updated_at');
+            $table->timestamps();
         });
     }
 

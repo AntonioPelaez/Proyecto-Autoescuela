@@ -20,10 +20,9 @@ return new class extends Migration
             $table->time('end_time');
             $table->unsignedSmallInteger('slot_minutes')->default(60); // Duration of each slot in minutes
             $table->boolean('is_active')->default(true);
-            $table->index(['town_id', 'day_of_week', 'is_active']);
-            $table->index(['teacher_profile_id', 'day_of_week', 'is_active']);
-            $table->timestamps('created_at');
-            $table->timestamps('updated_at');
+            $table->index(['town_id', 'day_of_week', 'is_active'],'idx_town_day_active');
+            $table->index(['teacher_profile_id', 'day_of_week', 'is_active'],'idx_teacher_day_active');
+            $table->timestamps();
         });
     }
 
