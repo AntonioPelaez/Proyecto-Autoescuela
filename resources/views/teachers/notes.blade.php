@@ -1,24 +1,20 @@
- public function register(Request $request)
-    {
-        $validated = $request->validate([
-            'email' => 'required|email|unique:users,email',
-            'password' => 'required|min:6',
-            'name' => 'required|string|max:80',
-        ]);
+@extends('layouts.app')
 
-        $user = User::create([
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
-            'name' => $validated['name'],
-            'role_id' => 3, // alumno
-        ]);
+@section('content')
+<div class="container">
 
-        StudentProfile::create([
-            'user_id' => $user->id,
-        ]);
+    <h2>Notas del profesor: {{ $teacher->user->name }}</h2>
 
-        return response()->json([
-            'message' => 'Alumno registrado correctamente',
-            'user' => $user,
-        ], 201);
-    }
+    <form action="{{ route('teachers.notes.save', $teacher) }}" method="POST">
+        @csrf
+        @method('PUT')
+
+        <label>Notas</label>
+        <textarea name="notes" class="form-control" rows="8">{{ $teacher->notes }}</textarea>
+
+        <button class="btn btn-primary mt-3">Guardar notas</button>
+        <a href="{{ route('teachers.index') }}" class="btn btn-secondary mt-3">Volver</a>
+    </form>
+
+</div>
+@endsection

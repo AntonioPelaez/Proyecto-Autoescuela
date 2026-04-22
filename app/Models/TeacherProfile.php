@@ -22,8 +22,9 @@ class TeacherProfile extends Model
     public function user(){
         return $this->belongsTo(User::class);
     }
-    public function town(){
-        return $this->belongsToMany(Town::class, 'teacher_towns');
+    public function towns()
+    {
+        return $this->belongsToMany(Town::class, 'teacher_town', 'teacher_id', 'town_id');
     }
     public function vehicles(){
         return $this->belongsToMany(Vehicle::class, 'teacher_vehicles');
