@@ -5,6 +5,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\TeacherProfileController;
 use App\Http\Controllers\StudentProfileController;
 use App\Http\Controllers\VehicleController;
+use App\Http\Controllers\ClassSessionController;
 
 /*
 |--------------------------------------------------------------------------
@@ -94,3 +95,7 @@ Route::prefix('vehicles')->name('vehicles.')->group(function () {
     Route::delete('/{vehicle}', [VehicleController::class, 'destroy'])->name('delete');
 });
 
+
+// Reservar clases
+Route::get('/class-sessions/create', [ClassSessionController::class, 'create'])->name('class-sessions.create');
+Route::post('/class-sessions', [ClassSessionController::class, 'store'])->name('class-sessions.store');

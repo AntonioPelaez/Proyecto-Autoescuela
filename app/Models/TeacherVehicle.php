@@ -15,4 +15,21 @@ class TeacherVehicle extends Model
        'ends_at',
        'is_primary',
    ];
+
+   public static function getVehicleForDate($teacherId, $date)
+    {
+        return self::where('teacher_profile_id', $teacherId)
+            ->where(function ($q) use ($date) {
+                $q->whereNull('starts_at')
+                ->whereNull('ends_at')
+                ->orWhere(function ($q2) use ($date) {
+                    $q2->where('starts_at', '<=', $date)
+                        ->where('ends_at', '>=', $date);
+                });
+            })
+            ->first();
+    }
+
 }
+
+
