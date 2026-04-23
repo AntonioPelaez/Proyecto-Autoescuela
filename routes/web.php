@@ -4,7 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\TeacherProfileController;
 use App\Http\Controllers\StudentProfileController;
-
+use App\Http\Controllers\VehicleController;
 /*
 |--------------------------------------------------------------------------
 | Ruta principal
