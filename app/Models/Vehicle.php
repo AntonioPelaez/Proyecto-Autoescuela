@@ -3,25 +3,23 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Vehicle extends Model
 {
-    use HasFactory;
-
-    /* Campos rellenables*/
     protected $fillable = [
         'plate_number',
         'brand',
         'model',
+        'year',
         'is_active',
-        'notes',
     ];
 
-    /* Relaciones */
-    public function teachers(){
-        return $this->belongsToMany(TeacherProfile::class, 'teacher_vehicles');
+    public function teachers()
+    {
+        return $this->belongsToMany(TeacherProfile::class, 'teacher_vehicles', 'vehicle_id', 'teacher_profile_id')
+            ->withPivot(['starts_at', 'ends_at', 'is_primary', 'created_at', 'updated_at']);
     }
+    
     public function sessionClass(){
         return $this->hasMany(ClassSession::class);
     }

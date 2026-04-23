@@ -4,6 +4,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\TownsController;
+use App\Http\Controllers\TeacherAvailabilityController;
+
 // Todas estas rutas serán /api/auth/...
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
@@ -21,3 +23,6 @@ Route::put('/towns/{id}', [TownsController::class, 'update'])->middleware('auth:
 Route::delete('/towns/{id}', [TownsController::class, 'destroy'])->middleware('auth:sanctum');
 // Esta ruta será /api/me
 Route::middleware('auth:sanctum')->get('/me', [AuthController::class, 'me']);
+
+// Endpoint para obtener la disponibilidad de un profesor
+Route::get('/teachers/{teacher}/availability', [TeacherAvailabilityController::class, 'getAvailability']);
