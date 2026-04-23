@@ -5,6 +5,8 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\TownsController;
 use App\Http\Controllers\TeacherAvailabilityController;
+use App\Http\Controllers\ClassController;
+use App\Http\Controllers\TeacherAvailabiltyExceptionsController;
 use App\Http\Controllers\ClassSessionController;
 use App\Http\Controllers\ClassSessionQueryController;
 
@@ -28,12 +30,3 @@ Route::middleware('auth:sanctum')->get('/me', [AuthController::class, 'me']);
 
 // Endpoint para obtener la disponibilidad de un profesor
 Route::get('/teachers/{teacher}/availability', [TeacherAvailabilityController::class, 'getAvailability']);
-
-// Endpoint para reservar una clase
-Route::get('/class-sessions/create', [ClassSessionController::class, 'create'])->name('class-sessions.create');
-Route::get('/class-sessions', [ClassSessionQueryController::class, 'index']);
-Route::post('/class-sessions', [ClassSessionController::class, 'store']);
-Route::get('/availability-hours', [ClassSessionController::class, 'hours'])->name('api.hours');
-Route::get('/class-sessions/day', [ClassSessionController::class, 'daySessions']);
-
-
