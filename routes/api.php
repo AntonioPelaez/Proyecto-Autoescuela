@@ -5,6 +5,8 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\TownsController;
 use App\Http\Controllers\TeacherAvailabilityController;
+use App\Http\Controllers\ClassController;
+use App\Http\Controllers\TeacherAvailabiltyExceptionsController;
 
 // Todas estas rutas serán /api/auth/...
 Route::prefix('auth')->group(function () {
@@ -26,3 +28,10 @@ Route::middleware('auth:sanctum')->get('/me', [AuthController::class, 'me']);
 
 // Endpoint para obtener la disponibilidad de un profesor
 Route::get('/teachers/{teacher}/availability', [TeacherAvailabilityController::class, 'getAvailability']);
+
+// Endpoint para ver mis clases
+Route::get('/my-classes', [ClassController::class, 'index'])->middleware('auth:sanctum');
+
+// Endpoint para gestionar excepciones de disponibilidad
+Route::get('/teachers/availability-exceptions', [TeacherAvailabiltyExceptionsController::class, 'index'])->middleware('auth:sanctum');
+Route::post('/teachers/availability-exceptions', [TeacherAvailabiltyExceptionsController::class, 'store'])->middleware('auth:sanctum');
