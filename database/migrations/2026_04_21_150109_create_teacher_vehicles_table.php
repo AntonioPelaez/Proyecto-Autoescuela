@@ -17,7 +17,7 @@ return new class extends Migration
             $table->foreignId('vehicle_id')->references('id')->on('vehicles')->onDelete('cascade');
             $table->dateTime('starts_at')->nullable();
             $table->dateTime('ends_at')->nullable();
-            $table->boolean('is_primary');
+            $table->boolean('is_primary')->default(true); // Indica si el profesor utiliza principalmente este vehículo
             $table->index(['teacher_profile_id', 'is_primary']);
             $table->timestamps();
         });

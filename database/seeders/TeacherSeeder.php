@@ -18,7 +18,7 @@ class TeacherSeeder extends Seeder
         ]);
 
         TeacherProfile::create([
-            'user_id' => 3,
+            'user_id' => 4,
             'dni' => '23458738A',
             'license_number' => 'LIC364665',
             'notes' => 'Profesor con poca experiencia en la enseñanza de conducción.',
