@@ -55,5 +55,18 @@ class UsersSeeder extends Seeder
             'last_login_at' => now(),
             'remember_token' => Str::random(60),
         ]);
+
+        User::create([
+            'role_id' => 2, // por ejemplo: 2 = profesor
+            'name' => 'Trinidad',
+            'surname1' => 'Gómez',
+            'surname2' => 'Santos',
+            'email' => 'trinidad@example.com',
+            'phone' => '600345474',
+            'password' => Hash::make('password123'),
+            'is_active' => true,
+            'last_login_at' => now(),
+            'remember_token' => Str::random(60),
+        ]);
     }
 }

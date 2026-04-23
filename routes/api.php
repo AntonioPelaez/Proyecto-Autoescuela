@@ -3,7 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PasswordResetController;
-
+use App\Http\Controllers\TownsController;
 // Todas estas rutas serán /api/auth/...
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
@@ -14,5 +14,10 @@ Route::prefix('auth')->group(function () {
     Route::post('/reset-password', [PasswordResetController::class, 'resetPassword']);
 });
 
+Route::get('/towns', [TownsController::class, 'index']);
+Route::get('/towns/{id}', [TownsController::class, 'show']);
+Route::post('/towns', [TownsController::class, 'store'])->middleware('auth:sanctum');
+Route::put('/towns/{id}', [TownsController::class, 'update'])->middleware('auth:sanctum');
+Route::delete('/towns/{id}', [TownsController::class, 'destroy'])->middleware('auth:sanctum');
 // Esta ruta será /api/me
 Route::middleware('auth:sanctum')->get('/me', [AuthController::class, 'me']);

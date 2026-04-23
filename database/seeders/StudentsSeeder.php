@@ -13,7 +13,7 @@ class StudentsSeeder extends Seeder
     public function run(): void
     {
         $student = new \App\Models\StudentProfile();
-        $student->user_id = 1;
+        $student->user_id = 2;
         $student->dni = '12345678A';
         $student->birth_date = '2000-01-01';
         $student->pickup_notes = 'El alumno prefiere ser recogido en la puerta principal.';

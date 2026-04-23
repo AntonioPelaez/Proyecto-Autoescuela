@@ -19,7 +19,6 @@ class TownsSeeder extends Seeder
         $towns1 = new \App\Models\Town();
         $towns1->name = 'Antequera';
         $towns1->postal_code = '29200';
-        $towns1->is_active = false;
         $towns1->save();
     }
 }
