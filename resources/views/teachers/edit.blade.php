@@ -47,7 +47,7 @@
                     <label class="d-block">
                         <input type="checkbox" name="towns[]"
                                value="{{ $town->id }}"
-                               {{ $teacher->town->contains($town->id) ? 'checked' : '' }}>
+                               {{ $teacher->towns->contains($town->id) ? 'checked' : '' }}>
                         {{ $town->name }}
                     </label>
                 @endforeach

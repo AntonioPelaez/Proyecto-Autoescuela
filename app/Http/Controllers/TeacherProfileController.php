@@ -5,30 +5,22 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\Town;
 use App\Models\TeacherProfile;
+use App\Models\Vehicle;
 use Illuminate\Http\Request;
 
 class TeacherProfileController extends Controller
 {
-    /**
-     * LISTADO DE PROFESORES
-     * Solo usuarios con rol profesor (role_id = 2)
-     */
     public function index()
     {
-        $teachers = TeacherProfile::with(['user', 'town'])
+        $teachers = TeacherProfile::with(['user', 'towns'])
             ->whereHas('user', function ($q) {
-                $q->where('role_id', 2); // Solo profesores
+                $q->where('role_id', 2);
             })
             ->get();
 
         return view('teachers.index', compact('teachers'));
     }
 
-    /**
-     * FORMULARIO DE CREACIÓN
-     * - Usuarios con rol profesor que NO tengan perfil
-     * - Todas las poblaciones
-     */
     public function create()
     {
         $users = User::where('role_id', 2)
@@ -40,9 +32,6 @@ class TeacherProfileController extends Controller
         return view('teachers.create', compact('users', 'towns'));
     }
 
-    /**
-     * GUARDAR PROFESOR
-     */
     public function store(Request $request)
     {
         $request->validate([
@@ -54,7 +43,6 @@ class TeacherProfileController extends Controller
             'towns' => 'nullable|array',
         ]);
 
-        // Crear perfil
         $teacher = TeacherProfile::create([
             'user_id' => $request->user_id,
             'dni' => $request->dni,
@@ -63,26 +51,19 @@ class TeacherProfileController extends Controller
             'is_active_for_booking' => $request->is_active_for_booking ? 1 : 0,
         ]);
 
-        // Asignar poblaciones
         if ($request->towns) {
-            $teacher->town()->sync($request->towns);
+            $teacher->towns()->sync($request->towns);
         }
 
         return redirect()->route('teachers.index')->with('success', 'Profesor creado correctamente');
     }
 
-    /**
-     * FORMULARIO DE EDICIÓN
-     */
     public function edit(TeacherProfile $teacher)
     {
         $towns = Town::all();
         return view('teachers.edit', compact('teacher', 'towns'));
     }
 
-    /**
-     * ACTUALIZAR PROFESOR
-     */
     public function update(Request $request, TeacherProfile $teacher)
     {
         $request->validate([
@@ -92,39 +73,28 @@ class TeacherProfileController extends Controller
             'towns' => 'nullable|array',
         ]);
 
-        // Actualizar datos
         $teacher->update([
             'dni' => $request->dni,
             'license_number' => $request->license_number,
             'is_active_for_booking' => $request->is_active_for_booking ? 1 : 0,
         ]);
 
-        // Actualizar poblaciones
-        $teacher->town()->sync($request->towns ?? []);
+        $teacher->towns()->sync($request->towns ?? []);
 
         return redirect()->route('teachers.index')->with('success', 'Profesor actualizado correctamente');
     }
 
-    /**
-     * ELIMINAR PROFESOR
-     */
     public function destroy(TeacherProfile $teacher)
     {
         $teacher->delete();
         return redirect()->route('teachers.index')->with('success', 'Profesor eliminado correctamente');
     }
 
-    /**
-     * PÁGINA DE NOTAS
-     */
     public function notes(TeacherProfile $teacher)
     {
         return view('teachers.notes', compact('teacher'));
     }
 
-    /**
-     * GUARDAR NOTAS
-     */
     public function saveNotes(Request $request, TeacherProfile $teacher)
     {
         $request->validate([
@@ -139,43 +109,33 @@ class TeacherProfileController extends Controller
     }
 
     /**
-     * ASOCIAR ALUMNOS
+     * VEHÍCULOS ASIGNADOS
      */
-    /**
-     *  Mostrar alumnos disponibles 
-     */
-    public function students(TeacherProfile $teacher)
+    public function vehicles(TeacherProfile $teacher)
     {
-        $availableStudents = StudentProfile::whereNull('teacher_id')->with('user')->get();
-        $assignedStudents = StudentProfile::where('teacher_id', $teacher->id)->with('user')->get();
+        $vehicles = Vehicle::all();
+        $assigned = $teacher->vehicles()->pluck('vehicle_id')->toArray();
 
-        return view('teachers.students', compact('teacher', 'availableStudents', 'assignedStudents'));
+        return view('teachers.vehicles', compact('teacher', 'vehicles', 'assigned'));
     }
 
-    /**
-     * Asociar alumno al profesor
-     */
-    public function attachStudent(Request $request, TeacherProfile $teacher)
+    public function assignVehicle(Request $request, TeacherProfile $teacher)
     {
         $request->validate([
-            'student_id' => 'required|exists:student_profiles,id'
+            'vehicle_id' => 'required|exists:vehicles,id'
         ]);
 
-        $student = StudentProfile::find($request->student_id);
-        $student->teacher_id = $teacher->id;
-        $student->save();
+        if (!$teacher->vehicles()->where('vehicle_id', $request->vehicle_id)->exists()) {
+            $teacher->vehicles()->attach($request->vehicle_id);
+        }
 
-        return back()->with('success', 'Alumno asignado correctamente.');
+        return back()->with('success', 'Vehículo asignado correctamente.');
     }
-    /**
-     * Desasociar alumno del profesor
-     */
-    public function detachStudent(TeacherProfile $teacher, StudentProfile $student)
+
+    public function removeVehicle(TeacherProfile $teacher, Vehicle $vehicle)
     {
-        $student->teacher_id = null;
-        $student->save();
+        $teacher->vehicles()->detach($vehicle->id);
 
-        return back()->with('success', 'Alumno desasignado correctamente.');
+        return back()->with('success', 'Vehículo desasignado correctamente.');
     }
-
 }
