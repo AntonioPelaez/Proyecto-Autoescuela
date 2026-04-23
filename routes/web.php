@@ -49,11 +49,7 @@ Route::prefix('teachers')->name('teachers.')->group(function () {
     Route::get('/{teacher}/notes', [TeacherProfileController::class, 'notes'])->name('notes');
     Route::put('/{teacher}/notes', [TeacherProfileController::class, 'saveNotes'])->name('notes.save');
 
-    /*
-    |--------------------------------------------------------------------------
-    | ASIGNACIÓN DE VEHÍCULOS A PROFESORES
-    |--------------------------------------------------------------------------
-    */
+    // VEHÍCULOS
     Route::get('/{teacher}/vehicles', [TeacherProfileController::class, 'vehicles'])->name('vehicles');
     Route::post('/{teacher}/vehicles/assign', [TeacherProfileController::class, 'assignVehicle'])->name('vehicles.assign');
     Route::delete('/{teacher}/vehicles/{vehicle}/remove', [TeacherProfileController::class, 'removeVehicle'])->name('vehicles.remove');
@@ -80,9 +76,6 @@ Route::prefix('students')->name('students.')->group(function () {
     Route::put('/{student}/notes', [StudentProfileController::class, 'saveNotes'])->name('notes.save');
 });
 
-
-
-
 /*
 |--------------------------------------------------------------------------
 | CRUD Vehículos
@@ -100,3 +93,4 @@ Route::prefix('vehicles')->name('vehicles.')->group(function () {
 
     Route::delete('/{vehicle}', [VehicleController::class, 'destroy'])->name('delete');
 });
+
