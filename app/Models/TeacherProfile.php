@@ -22,21 +22,25 @@ class TeacherProfile extends Model
     public function user(){
         return $this->belongsTo(User::class);
     }
+
     public function towns()
     {
-        return $this->belongsToMany(Town::class, 'teacher_town', 'teacher_id', 'town_id');
+        return $this->belongsToMany(Town::class, 'teacher_towns', 'teacher_profile_id', 'town_id');
     }
+
     public function vehicles(){
         return $this->belongsToMany(Vehicle::class, 'teacher_vehicles');
     }
+
     public function weeklyAvailabilities(){
         return $this->hasMany(TeacherWeeklyAvailability::class);
     }
+
     public function availabilities(){
         return $this->hasMany(TeacherAvailabilityException::class);
     }
+
     public function classSession(){
         return $this->hasMany(ClassSession::class);
     }
-
 }

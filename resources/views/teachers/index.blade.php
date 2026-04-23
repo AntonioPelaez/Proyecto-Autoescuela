@@ -41,24 +41,16 @@
 
                     <td class="d-flex gap-1">
 
-                        <a href="{{ route('teachers.edit', $t) }}" class="btn btn-warning btn-sm">
-                            Editar
-                        </a>
+                        <a href="{{ route('teachers.edit', $t) }}" class="btn btn-warning btn-sm">Editar</a>
 
                         <form action="{{ route('teachers.delete', $t) }}" method="POST">
                             @csrf @method('DELETE')
-                            <button class="btn btn-danger btn-sm">
-                                Eliminar
-                            </button>
+                            <button class="btn btn-danger btn-sm">Eliminar</button>
                         </form>
 
-                        <a href="{{ route('teachers.notes', $t) }}" class="btn btn-secondary btn-sm">
-                            Notas
-                        </a>
+                        <a href="{{ route('teachers.notes', $t) }}" class="btn btn-secondary btn-sm">Notas</a>
 
-                        <a href="{{ route('teachers.students', $t) }}" class="btn btn-info btn-sm">
-                            Alumnos
-                        </a>
+                        <a href="{{ route('teachers.vehicles', $t) }}" class="btn btn-dark btn-sm">Vehículos</a>
 
                     </td>
                 </tr>
