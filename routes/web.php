@@ -4,7 +4,6 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\TeacherProfileController;
 use App\Http\Controllers\StudentProfileController;
-use App\Http\Controllers\VehicleController;
 
 /*
 |--------------------------------------------------------------------------
@@ -14,12 +13,6 @@ use App\Http\Controllers\VehicleController;
 Route::get('/', function () {
     return view('welcome');
 });
-
-/*
-|--------------------------------------------------------------------------
-| Rutas de autenticación
-|--------------------------------------------------------------------------
-*/
 Route::prefix('auth')->group(function () {
     Route::view('/login', 'auth.login')->name('login');
     Route::view('/register', 'auth.register')->name('register');
@@ -85,6 +78,9 @@ Route::prefix('students')->name('students.')->group(function () {
     Route::get('/{student}/notes', [StudentProfileController::class, 'notes'])->name('notes');
     Route::put('/{student}/notes', [StudentProfileController::class, 'saveNotes'])->name('notes.save');
 });
+
+
+
 
 /*
 |--------------------------------------------------------------------------
