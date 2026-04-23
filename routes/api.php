@@ -11,14 +11,10 @@ Route::middleware('auth:sanctum')->prefix('auth')->group(function () {
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
     Route::post('/register', [AuthController::class, 'register']);
-    Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth:sanctum');
-
     Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLink']);
     Route::post('/reset-password', [PasswordResetController::class, 'resetPassword']);
 });
 
-Route::get('/towns', [TownsController::class, 'index']);
-Route::get('/towns/{id}', [TownsController::class, 'show']);
 Route::get('/towns', [TownsController::class, 'index'])->middleware('auth:sanctum');
 Route::get('/towns/{id}', [TownsController::class, 'show'])->middleware('auth:sanctum');
 Route::post('/towns', [TownsController::class, 'store'])->middleware('auth:sanctum');
