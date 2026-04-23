@@ -10,6 +10,9 @@ use Illuminate\Http\Request;
 
 class TeacherProfileController extends Controller
 {
+    /**
+     * LISTADO DE PROFESORES
+     */
     public function index()
     {
         $teachers = TeacherProfile::with(['user', 'towns'])
@@ -21,6 +24,9 @@ class TeacherProfileController extends Controller
         return view('teachers.index', compact('teachers'));
     }
 
+    /**
+     * FORMULARIO DE CREACIÓN
+     */
     public function create()
     {
         $users = User::where('role_id', 2)
@@ -32,6 +38,9 @@ class TeacherProfileController extends Controller
         return view('teachers.create', compact('users', 'towns'));
     }
 
+    /**
+     * GUARDAR PROFESOR
+     */
     public function store(Request $request)
     {
         $request->validate([
@@ -58,12 +67,18 @@ class TeacherProfileController extends Controller
         return redirect()->route('teachers.index')->with('success', 'Profesor creado correctamente');
     }
 
+    /**
+     * FORMULARIO DE EDICIÓN
+     */
     public function edit(TeacherProfile $teacher)
     {
         $towns = Town::all();
         return view('teachers.edit', compact('teacher', 'towns'));
     }
 
+    /**
+     * ACTUALIZAR PROFESOR
+     */
     public function update(Request $request, TeacherProfile $teacher)
     {
         $request->validate([
@@ -84,12 +99,18 @@ class TeacherProfileController extends Controller
         return redirect()->route('teachers.index')->with('success', 'Profesor actualizado correctamente');
     }
 
+    /**
+     * ELIMINAR PROFESOR
+     */
     public function destroy(TeacherProfile $teacher)
     {
         $teacher->delete();
         return redirect()->route('teachers.index')->with('success', 'Profesor eliminado correctamente');
     }
 
+    /**
+     * NOTAS
+     */
     public function notes(TeacherProfile $teacher)
     {
         return view('teachers.notes', compact('teacher'));
@@ -109,7 +130,7 @@ class TeacherProfileController extends Controller
     }
 
     /**
-     * VEHÍCULOS ASIGNADOS
+     * PÁGINA DE ASIGNACIÓN DE VEHÍCULOS
      */
     public function vehicles(TeacherProfile $teacher)
     {
@@ -119,19 +140,31 @@ class TeacherProfileController extends Controller
         return view('teachers.vehicles', compact('teacher', 'vehicles', 'assigned'));
     }
 
+    /**
+     * ASIGNAR VEHÍCULO
+     */
     public function assignVehicle(Request $request, TeacherProfile $teacher)
     {
         $request->validate([
-            'vehicle_id' => 'required|exists:vehicles,id'
+            'vehicle_id' => 'required|exists:vehicles,id',
+            'start_at' => 'nullable|date',
+            'end_at' => 'nullable|date|after_or_equal:start_at',
         ]);
 
-        if (!$teacher->vehicles()->where('vehicle_id', $request->vehicle_id)->exists()) {
-            $teacher->vehicles()->attach($request->vehicle_id);
-        }
+        $teacher->vehicles()->attach($request->vehicle_id, [
+            'is_primary' => 0,
+            'starts_at' => $request->start_at,
+            'ends_at' => $request->end_at,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
 
         return back()->with('success', 'Vehículo asignado correctamente.');
     }
 
+    /**
+     * QUITAR VEHÍCULO
+     */
     public function removeVehicle(TeacherProfile $teacher, Vehicle $vehicle)
     {
         $teacher->vehicles()->detach($vehicle->id);
