@@ -12,7 +12,7 @@ class TeacherWeeklyAvailability extends Model
         'teacher_profile_id',
         'town_id',
         'day_of_week',
-        'start_time',
+        'starts_time',
         'end_time',
         'slot_minutes',
         'is_active',
