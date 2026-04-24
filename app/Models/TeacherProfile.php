@@ -29,4 +29,9 @@ class TeacherProfile extends Model
         return $this->belongsToMany(Vehicle::class, 'teacher_vehicles', 'teacher_profile_id', 'vehicle_id')
             ->withPivot(['starts_at', 'ends_at', 'is_primary', 'created_at', 'updated_at']);
     }
+
+    public function classSessions()
+    {
+        return $this->hasMany(ClassSession::class, 'teacher_profile_id');
+    }
 }

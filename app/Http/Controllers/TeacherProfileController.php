@@ -60,6 +60,10 @@ class TeacherProfileController extends Controller
             'is_active_for_booking' => $request->is_active_for_booking ? 1 : 0,
         ]);
 
+        /**
+         * 🔥 ASIGNAR AUTOMÁTICAMENTE LOS PUEBLOS SELECCIONADOS
+         * Esto llena la tabla teacher_towns sin que tengas que hacerlo a mano.
+         */
         if ($request->towns) {
             $teacher->towns()->sync($request->towns);
         }
@@ -94,6 +98,9 @@ class TeacherProfileController extends Controller
             'is_active_for_booking' => $request->is_active_for_booking ? 1 : 0,
         ]);
 
+        /**
+         * 🔥 ACTUALIZAR PUEBLOS ASIGNADOS
+         */
         $teacher->towns()->sync($request->towns ?? []);
 
         return redirect()->route('teachers.index')->with('success', 'Profesor actualizado correctamente');

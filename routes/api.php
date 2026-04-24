@@ -63,12 +63,26 @@ Route::delete('/teachers/availability-exceptions/{id}', [TeacherAvailabiltyExcep
 
 /*
 |--------------------------------------------------------------------------
-| Horas disponibles para reservar
+| Horas disponibles para reservar (profesor individual)
 |--------------------------------------------------------------------------
 */
 Route::get('/availability-slots', [ClassSessionController::class, 'hours']);
 
 
+
+/*
+|--------------------------------------------------------------------------
+| Slots disponibles para reservar (pueblo → profesores → slots)
+|--------------------------------------------------------------------------
+*/
+Route::get('/availability-slots', [ClassSessionController::class, 'availabilitySlots']);
+
+/*
+|--------------------------------------------------------------------------
+| Slots disponibles para reservar (pueblo → profesores → slots)
+|--------------------------------------------------------------------------
+*/
+Route::get('/availability-slots', [ClassSessionController::class, 'availabilitySlots']);
 
 /*
 | Consultar clases del día (confirmadas + pendientes)
