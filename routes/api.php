@@ -9,7 +9,10 @@ use App\Http\Controllers\TeacherAvailabiltyExceptionsController;
 use App\Http\Controllers\ClassSessionController;
 use App\Http\Controllers\ClassSessionQueryController;
 use App\Http\Controllers\ClassController;
+<<<<<<< HEAD
+=======
 use App\Http\Controllers\AdminClassController;
+>>>>>>> features/Antonio
 
 /*
 |--------------------------------------------------------------------------
