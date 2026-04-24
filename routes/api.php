@@ -58,10 +58,17 @@ Route::post('/teachers/availability-exceptions', [TeacherAvailabiltyExceptionsCo
 
 /*
 |--------------------------------------------------------------------------
-| Horas disponibles para reservar
+| Horas disponibles para reservar (profesor individual)
 |--------------------------------------------------------------------------
 */
 Route::get('/availability-hours', [ClassSessionController::class, 'hours']);
+
+/*
+|--------------------------------------------------------------------------
+| Slots disponibles para reservar (pueblo → profesores → slots)
+|--------------------------------------------------------------------------
+*/
+Route::get('/availability-slots', [ClassSessionController::class, 'availabilitySlots']);
 
 /*
 |--------------------------------------------------------------------------

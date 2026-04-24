@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class StudentProfile extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'user_id',
         'dni',
@@ -17,6 +19,11 @@ class StudentProfile extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function classSessions()
+    {
+        return $this->hasMany(ClassSession::class, 'student_profile_id');
     }
 }
 

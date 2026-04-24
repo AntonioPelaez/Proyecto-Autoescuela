@@ -17,19 +17,21 @@ class TeacherVehicle extends Model
    ];
 
    public static function getVehicleForDate($teacherId, $date)
-    {
-        return self::where('teacher_profile_id', $teacherId)
-            ->where(function ($q) use ($date) {
-                $q->whereNull('starts_at')
-                ->whereNull('ends_at')
-                ->orWhere(function ($q2) use ($date) {
-                    $q2->where('starts_at', '<=', $date)
-                        ->where('ends_at', '>=', $date);
-                });
+{
+    return self::where('teacher_profile_id', $teacherId)
+        ->where(function ($q) use ($date) {
+            $q->where(function ($q2) {
+                $q2->whereNull('starts_at')
+                   ->whereNull('ends_at');
             })
-            ->first();
-    }
-
+            ->orWhere(function ($q2) use ($date) {
+                $q2->where('starts_at', '<=', $date)
+                   ->where('ends_at', '>=', $date);
+            });
+        })
+        ->orderByDesc('is_primary')
+        ->first();
+}
 }
 
 
