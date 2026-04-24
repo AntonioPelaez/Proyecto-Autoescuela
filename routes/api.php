@@ -5,12 +5,15 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\TownsController;
 use App\Http\Controllers\TeacherAvailabilityController;
-use App\Http\Controllers\ClassController;
 use App\Http\Controllers\TeacherAvailabiltyExceptionsController;
 use App\Http\Controllers\ClassSessionController;
 use App\Http\Controllers\ClassSessionQueryController;
 
-// Todas estas rutas serán /api/auth/...
+/*
+|--------------------------------------------------------------------------
+| Rutas de Autenticación (/api/auth/...)
+|--------------------------------------------------------------------------
+*/
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
     Route::post('/register', [AuthController::class, 'register']);
@@ -20,15 +23,29 @@ Route::prefix('auth')->group(function () {
     Route::post('/reset-password', [PasswordResetController::class, 'resetPassword']);
 });
 
+/*
+|--------------------------------------------------------------------------
+| Rutas de Pueblos
+|--------------------------------------------------------------------------
+*/
 Route::get('/towns', [TownsController::class, 'index']);
 Route::get('/towns/{id}', [TownsController::class, 'show']);
 Route::post('/towns', [TownsController::class, 'store'])->middleware('auth:sanctum');
 Route::put('/towns/{id}', [TownsController::class, 'update'])->middleware('auth:sanctum');
 Route::delete('/towns/{id}', [TownsController::class, 'destroy'])->middleware('auth:sanctum');
-// Esta ruta será /api/me
+
+/*
+|--------------------------------------------------------------------------
+| Usuario autenticado (/api/me)
+|--------------------------------------------------------------------------
+*/
 Route::middleware('auth:sanctum')->get('/me', [AuthController::class, 'me']);
 
-// Endpoint para obtener la disponibilidad de un profesor
+/*
+|--------------------------------------------------------------------------
+| Disponibilidad de profesores
+|--------------------------------------------------------------------------
+*/
 Route::get('/teachers/{teacher}/availability', [TeacherAvailabilityController::class, 'getAvailability']);
 
 // Endpoint para ver mis clases
@@ -37,3 +54,38 @@ Route::get('/my-classes', [ClassController::class, 'index'])->middleware('auth:s
 // Endpoint para gestionar excepciones de disponibilidad
 Route::get('/teachers/availability-exceptions', [TeacherAvailabiltyExceptionsController::class, 'index'])->middleware('auth:sanctum');
 Route::post('/teachers/availability-exceptions', [TeacherAvailabiltyExceptionsController::class, 'store'])->middleware('auth:sanctum');
+
+/*
+|--------------------------------------------------------------------------
+| Horas disponibles para reservar
+|--------------------------------------------------------------------------
+*/
+Route::get('/availability-hours', [ClassSessionController::class, 'hours']);
+
+/*
+|--------------------------------------------------------------------------
+| Consultar clases del día (confirmadas + pendientes)
+|--------------------------------------------------------------------------
+*/
+Route::get('/class-sessions/day', [ClassSessionController::class, 'daySessions']);
+
+/*
+|--------------------------------------------------------------------------
+| Crear reserva (pendiente)
+|--------------------------------------------------------------------------
+*/
+Route::post('/class-sessions', [ClassSessionController::class, 'store']);
+
+/*
+|--------------------------------------------------------------------------
+| Cancelar reserva (marca status = cancelled)
+|--------------------------------------------------------------------------
+*/
+Route::post('/class-sessions/cancel', [ClassSessionController::class, 'cancel']);
+
+/*
+|--------------------------------------------------------------------------
+| Confirmar reserva (pending → confirmed)
+|--------------------------------------------------------------------------
+*/
+Route::post('/class-sessions/confirm', [ClassSessionController::class, 'confirm']);
