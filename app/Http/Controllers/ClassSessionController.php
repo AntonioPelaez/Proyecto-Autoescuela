@@ -9,6 +9,7 @@ use App\Models\TeacherVehicle;
 use App\Models\Town;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
 
 class ClassSessionController extends Controller
 {
@@ -123,56 +124,59 @@ class ClassSessionController extends Controller
             'end' => 'required|date_format:Y-m-d H:i:s',
         ]);
 
-        $teacherId = $request->teacher_id;
-        $date = $request->date;
+        return DB::transaction(function () use ($request) {
 
-        $start = Carbon::parse($request->start);
-        $end = Carbon::parse($request->end);
+            $teacherId = $request->teacher_id;
+            $date = $request->date;
 
-        // Si hay una clase confirmada → NO permitir
-        $overlap = ClassSession::where('teacher_profile_id', $teacherId)
-            ->where('session_date', $date)
-            ->where('status', 'confirmed')
-            ->where(function ($q) use ($start, $end) {
-                $q->where('slot_starts_at', '<', $end)
-                  ->where('slot_ends_at', '>', $start);
-            })
-            ->exists();
+            $start = Carbon::parse($request->start);
+            $end = Carbon::parse($request->end);
 
-        if ($overlap) {
-            return response()->json(['error' => 'Hora ocupada'], 422);
-        }
+            // Si hay una clase confirmada → NO permitir
+            $overlap = ClassSession::where('teacher_profile_id', $teacherId)
+                ->where('session_date', $date)
+                ->where('status', 'confirmed')
+                ->where(function ($q) use ($start, $end) {
+                    $q->where('slot_starts_at', '<', $end)
+                      ->where('slot_ends_at', '>', $start);
+                })
+                ->exists();
 
-        // Si hay una clase pendiente → cancelarla automáticamente
-        ClassSession::where('teacher_profile_id', $teacherId)
-            ->where('session_date', $date)
-            ->where('status', 'pending')
-            ->where(function ($q) use ($start, $end) {
-                $q->where('slot_starts_at', '<', $end)
-                  ->where('slot_ends_at', '>', $start);
-            })
-            ->update([
-                'status' => 'cancelled',
-                'cancelled_at' => now()
+            if ($overlap) {
+                return response()->json(['error' => 'Hora ocupada'], 422);
+            }
+
+            // Si hay una clase pendiente → cancelarla automáticamente
+            ClassSession::where('teacher_profile_id', $teacherId)
+                ->where('session_date', $date)
+                ->where('status', 'pending')
+                ->where(function ($q) use ($start, $end) {
+                    $q->where('slot_starts_at', '<', $end)
+                      ->where('slot_ends_at', '>', $start);
+                })
+                ->update([
+                    'status' => 'cancelled',
+                    'cancelled_at' => now()
+                ]);
+
+            // Crear clase pendiente
+            $session = ClassSession::create([
+                'student_profile_id' => $request->student_id,
+                'teacher_profile_id' => $teacherId,
+                'town_id' => $request->town_id,
+                'vehicle_id' => $request->vehicle_id,
+                'session_date' => $date,
+                'start_time' => $start->format('H:i:s'),
+                'end_time' => $end->format('H:i:s'),
+                'slot_starts_at' => $start,
+                'slot_ends_at' => $end,
+                'status' => 'pending',
+                'payment_status' => 'pending',
+                'booking_reference' => strtoupper(Str::random(10)),
             ]);
 
-        // Crear clase pendiente
-        $session = ClassSession::create([
-            'student_profile_id' => $request->student_id,
-            'teacher_profile_id' => $teacherId,
-            'town_id' => $request->town_id,
-            'vehicle_id' => $request->vehicle_id,
-            'session_date' => $date,
-            'start_time' => $start->format('H:i:s'),
-            'end_time' => $end->format('H:i:s'),
-            'slot_starts_at' => $start,
-            'slot_ends_at' => $end,
-            'status' => 'pending',
-            'payment_status' => 'pending',
-            'booking_reference' => strtoupper(Str::random(10)),
-        ]);
-
-        return response()->json(['message' => 'Reserva pendiente creada', 'session' => $session]);
+            return response()->json(['message' => 'Reserva pendiente creada', 'session' => $session]);
+        });
     }
 
     public function cancel(Request $request)
@@ -181,14 +185,17 @@ class ClassSessionController extends Controller
             'id' => 'required|integer'
         ]);
 
-        $session = ClassSession::findOrFail($request->id);
+        return DB::transaction(function () use ($request) {
 
-        $session->update([
-            'status' => 'cancelled',
-            'cancelled_at' => now()
-        ]);
+            $session = ClassSession::findOrFail($request->id);
 
-        return response()->json(['message' => 'Clase cancelada']);
+            $session->update([
+                'status' => 'cancelled',
+                'cancelled_at' => now()
+            ]);
+
+            return response()->json(['message' => 'Clase cancelada']);
+        });
     }
 
     public function confirm(Request $request)
@@ -197,12 +204,16 @@ class ClassSessionController extends Controller
             'id' => 'required|integer'
         ]);
 
-        $session = ClassSession::findOrFail($request->id);
+        return DB::transaction(function () use ($request) {
 
-        $session->update([
-            'status' => 'confirmed'
-        ]);
+            $session = ClassSession::findOrFail($request->id);
 
-        return response()->json(['message' => 'Clase confirmada']);
+            $session->update([
+                'status' => 'confirmed',
+                'payment_status' => 'confirmed'
+            ]);
+
+            return response()->json(['message' => 'Clase confirmada']);
+        });
     }
 }
