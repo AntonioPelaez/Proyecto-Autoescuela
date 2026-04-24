@@ -9,6 +9,10 @@ use App\Http\Controllers\TeacherAvailabiltyExceptionsController;
 use App\Http\Controllers\ClassSessionController;
 use App\Http\Controllers\ClassSessionQueryController;
 use App\Http\Controllers\ClassController;
+<<<<<<< HEAD
+=======
+use App\Http\Controllers\AdminClassController;
+>>>>>>> features/Antonio
 
 /*
 |--------------------------------------------------------------------------
@@ -53,8 +57,18 @@ Route::get('/teachers/{teacher}/availability', [TeacherAvailabilityController::c
 Route::get('/my-classes', [ClassController::class, 'index'])->middleware('auth:sanctum');
 
 // Endpoint para gestionar excepciones de disponibilidad
+
 Route::get('/teachers/availability-exceptions', [TeacherAvailabiltyExceptionsController::class, 'index'])->middleware('auth:sanctum');
+Route::get('/teachers/availability-exceptions/{id}', [TeacherAvailabiltyExceptionsController::class, 'show'])->middleware('auth:sanctum');
+Route::put('/teachers/availability-exceptions/{id}', [TeacherAvailabiltyExceptionsController::class, 'update'])->middleware('auth:sanctum');
 Route::post('/teachers/availability-exceptions', [TeacherAvailabiltyExceptionsController::class, 'store'])->middleware('auth:sanctum');
+Route::delete('/teachers/availability-exceptions/{id}', [TeacherAvailabiltyExceptionsController::class, 'destroy'])->middleware('auth:sanctum');
+
+/*
+|--------------------------------------------------------------------------
+| Consultar clases (filtros: profesor, población, fecha)
+|--------------------------------------------------------------------------*/
+Route::get('/admin-classes', [AdminClassController::class, 'index']);
 
 /*
 |--------------------------------------------------------------------------
@@ -72,6 +86,12 @@ Route::get('/availability-slots', [ClassSessionController::class, 'availabilityS
 
 /*
 |--------------------------------------------------------------------------
+| Slots disponibles para reservar (pueblo → profesores → slots)
+|--------------------------------------------------------------------------
+*/
+Route::get('/availability-slots', [ClassSessionController::class, 'availabilitySlots']);
+
+/*
 | Consultar clases del día (confirmadas + pendientes)
 |--------------------------------------------------------------------------
 */
