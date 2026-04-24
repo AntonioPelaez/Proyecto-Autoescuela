@@ -9,10 +9,7 @@ use App\Http\Controllers\TeacherAvailabiltyExceptionsController;
 use App\Http\Controllers\ClassSessionController;
 use App\Http\Controllers\ClassSessionQueryController;
 use App\Http\Controllers\ClassController;
-<<<<<<< HEAD
-=======
 use App\Http\Controllers\AdminClassController;
->>>>>>> features/Antonio
 
 /*
 |--------------------------------------------------------------------------
@@ -51,7 +48,6 @@ Route::middleware('auth:sanctum')->get('/me', [AuthController::class, 'me']);
 | Disponibilidad de profesores
 |--------------------------------------------------------------------------
 */
-Route::get('/teachers/{teacher}/availability', [TeacherAvailabilityController::class, 'getAvailability']);
 
 // Endpoint para ver mis clases
 Route::get('/my-classes', [ClassController::class, 'index'])->middleware('auth:sanctum');
@@ -64,18 +60,15 @@ Route::put('/teachers/availability-exceptions/{id}', [TeacherAvailabiltyExceptio
 Route::post('/teachers/availability-exceptions', [TeacherAvailabiltyExceptionsController::class, 'store'])->middleware('auth:sanctum');
 Route::delete('/teachers/availability-exceptions/{id}', [TeacherAvailabiltyExceptionsController::class, 'destroy'])->middleware('auth:sanctum');
 
-/*
-|--------------------------------------------------------------------------
-| Consultar clases (filtros: profesor, población, fecha)
-|--------------------------------------------------------------------------*/
-Route::get('/admin-classes', [AdminClassController::class, 'index']);
 
 /*
 |--------------------------------------------------------------------------
 | Horas disponibles para reservar
 |--------------------------------------------------------------------------
 */
-Route::get('/availability-hours', [ClassSessionController::class, 'hours']);
+Route::get('/availability-slots', [ClassSessionController::class, 'hours']);
+
+
 
 /*
 | Consultar clases del día (confirmadas + pendientes)
@@ -103,3 +96,7 @@ Route::post('/class-sessions/cancel', [ClassSessionController::class, 'cancel'])
 |--------------------------------------------------------------------------
 */
 Route::post('/class-sessions/confirm', [ClassSessionController::class, 'confirm']);
+
+// Endpoint para que el admin pueda consultar todas las clases con filtros
+Route::get('/admin/classes', [AdminClassController::class, 'index'])->middleware('auth:sanctum');
+
