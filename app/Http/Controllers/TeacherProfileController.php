@@ -178,35 +178,4 @@ class TeacherProfileController extends Controller
 
         return back()->with('success', 'Vehículo desasignado correctamente.');
     }
-    /**
-     * RESERVAS DE UN PROFESOR A UNO O VARIOS ALUMNOS (CLASES RESERVADAS)
-     */
-    public function reservasProfesor(Request $request)
-    {
-        $user = $request->user();
-
-        // Validar que es profesor
-        if ($user->role->name !== 'teacher') {
-            return response()->json(['error' => 'Solo los profesores pueden ver sus reservas'], 403);
-        }
-
-        // Obtener el perfil del profesor
-        $teacher = $user->teacherProfile;
-
-        // Obtener reservas del profesor
-        $reservas = $teacher->classSessions()
-            ->with([
-                'studentProfile.user',
-                'vehicle',
-                'town'
-            ])
-            ->orderBy('session_date')
-            ->orderBy('slot_starts_at')
-            ->get();
-
-        return response()->json([
-            'teacher_id' => $teacher->id,
-            'reservas' => $reservas
-        ]);
-    }
 }
