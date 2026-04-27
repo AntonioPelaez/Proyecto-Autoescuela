@@ -12,4 +12,12 @@ class TeacherTown extends Model
         'teacher_profile_id',
         'town_id',
     ];
+
+    public function teacherProfile()
+{
+    return $this->belongsTo(\App\Models\TeacherProfile::class, 'teacher_profile_id');
 }
+
+}
+
+
