@@ -45,6 +45,10 @@ Route::delete('/towns/{id}', [TownsController::class, 'destroy'])->middleware('a
 */
 Route::middleware('auth:sanctum')->get('/me', [AuthController::class, 'me']);
 
+/**
+ * Ruta que permite a un alumno autenticado consultar sus clases reservadas, con detalles del profesor y pueblo.
+ */
+Route::get('my-classes', [ClassController::class, 'index'])->middleware('auth:sanctum');
 /*
 |--------------------------------------------------------------------------
 | Excepciones de disponibilidad
