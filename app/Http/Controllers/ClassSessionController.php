@@ -33,78 +33,78 @@ class ClassSessionController extends Controller
     | Obtener horas disponibles (SIN teacher_id)
     |--------------------------------------------------------------------------
     */
-    public function hours(Request $request)
-    {
-        $request->validate([
-            'town_id' => 'required|integer',
-            'date'    => 'required|date',
-        ]);
+ public function hours(Request $request)
+{
+    $request->validate([
+        'town_id'    => 'required|integer',
+        'teacher_id' => 'required|integer',
+        'date'       => 'required|date',
+    ]);
 
-        $townId = $request->town_id;
-        $date   = $request->date;
+    $townId    = $request->town_id;
+    $teacherId = $request->teacher_id;
+    $date      = $request->date;
 
-        // 1. Profesor asignado al pueblo (el primero que encuentre)
-        $teacherTown = TeacherTown::where('town_id', $townId)->first();
+    // 1. Día de la semana
+    $dayOfWeek = Carbon::parse($date)->dayOfWeekIso;
 
-        if (!$teacherTown) {
-            return response()->json(['hours' => []]);
-        }
+    // 2. Disponibilidad con GET (colección)
+    $availabilityCollection = TeacherWeeklyAvailability::where('teacher_profile_id', $teacherId)
+        ->where('town_id', $townId)
+        ->where('day_of_week', $dayOfWeek)
+        ->get();
 
-        $teacherId = $teacherTown->teacher_profile_id;
-
-        // 2. Disponibilidad semanal (solo por teacher + día)
-        $dayOfWeek = Carbon::parse($date)->dayOfWeekIso;
-
-        $availability = TeacherWeeklyAvailability::where('teacher_profile_id', $teacherId)
-            ->where('day_of_week', $dayOfWeek)
-            ->first();
-
-        if (!$availability) {
-            return response()->json(['hours' => []]);
-        }
-
-        $start = Carbon::parse("$date {$availability->starts_time}");
-        $end   = Carbon::parse("$date {$availability->end_time}");
-
-        // 3. Vehículo asignado
-        $vehicle = TeacherVehicle::getVehicleForDate($teacherId, $date);
-        if (!$vehicle) {
-            return response()->json(['hours' => []]);
-        }
-
-        // 4. Clases confirmadas
-        $existing = ClassSession::where('teacher_profile_id', $teacherId)
-            ->where('session_date', $date)
-            ->where('status', 'confirmed')
-            ->pluck('slot_starts_at')
-            ->map(fn($s) => Carbon::parse($s)->format('H:i'))
-            ->toArray();
-
-        // 5. Generar intervalos de 45 minutos
-        $intervals = [];
-        $cursor    = $start->copy();
-
-        while ($cursor->lt($end)) {
-            $slotStart = $cursor->copy();
-            $slotEnd   = $cursor->copy()->addMinutes(45);
-
-            if ($slotEnd->lte($end)) {
-                $hour       = $slotStart->format('H:i');
-                $isReserved = in_array($hour, $existing);
-
-                $intervals[] = [
-                    'start'      => $slotStart->format('Y-m-d H:i:s'),
-                    'end'        => $slotEnd->format('Y-m-d H:i:s'),
-                    'vehicle_id' => $vehicle->vehicle_id,
-                    'reserved'   => $isReserved,
-                ];
-            }
-
-            $cursor->addMinutes(45);
-        }
-
-        return response()->json(['hours' => $intervals]);
+    if ($availabilityCollection->isEmpty()) {
+        return response()->json(['hours' => []]);
     }
+
+    // 3. Tomamos el primer elemento SIN usar first()
+    $availability = $availabilityCollection->get(0);
+
+    // 4. Rango horario
+    $start = Carbon::parse("$date {$availability->starts_time}");
+    $end   = Carbon::parse("$date {$availability->end_time}");
+
+    // 5. Vehículo asignado
+    $vehicle = TeacherVehicle::getVehicleForDate($teacherId, $date);
+    if (!$vehicle) {
+        return response()->json(['hours' => []]);
+    }
+
+    // 6. Clases confirmadas
+    $existing = ClassSession::where('teacher_profile_id', $teacherId)
+        ->where('session_date', $date)
+        ->where('status', 'confirmed')
+        ->pluck('slot_starts_at')
+        ->map(fn($s) => Carbon::parse($s)->format('H:i'))
+        ->toArray();
+
+    // 7. Generar intervalos
+    $intervals = [];
+    $cursor    = $start->copy();
+
+    while ($cursor->lt($end)) {
+        $slotStart = $cursor->copy();
+        $slotEnd   = $cursor->copy()->addMinutes(45);
+
+        if ($slotEnd->lte($end)) {
+            $hour = $slotStart->format('H:i');
+
+            $intervals[] = [
+                'start'      => $slotStart->format('Y-m-d H:i:s'),
+                'end'        => $slotEnd->format('Y-m-d H:i:s'),
+                'vehicle_id' => $vehicle->vehicle_id,
+                'reserved'   => in_array($hour, $existing),
+            ];
+        }
+
+        $cursor->addMinutes(45);
+    }
+
+    return response()->json(['hours' => $intervals]);
+}
+
+
 
     /*
     |--------------------------------------------------------------------------

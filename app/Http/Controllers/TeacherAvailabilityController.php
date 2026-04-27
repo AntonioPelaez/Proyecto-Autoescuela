@@ -82,8 +82,9 @@ class TeacherAvailabilityController extends Controller
             ]);
         }
 
-        $start = Carbon::parse("$date {$availability->start_time}");
-        $end = Carbon::parse("$date {$availability->end_time}");
+       $start = Carbon::parse("$date {$availability->starts_time}");
+       $end   = Carbon::parse("$date {$availability->end_time}");
+
 
         /*
         |--------------------------------------------------------------------------
