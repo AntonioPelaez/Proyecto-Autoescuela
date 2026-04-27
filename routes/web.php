@@ -12,6 +12,7 @@ use App\Http\Controllers\ClassSessionController;
 | Ruta principal
 |--------------------------------------------------------------------------
 */
+
 Route::get('/', function () {
     return view('welcome');
 });
