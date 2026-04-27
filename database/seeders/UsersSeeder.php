@@ -63,7 +63,7 @@ class UsersSeeder extends Seeder
             'surname2' => 'Santos',
             'email' => 'trinidad@example.com',
             'phone' => '600345474',
-            'password' => Hash::make('password123'),
+            'password' => Hash::make('password123463.'),
             'is_active' => true,
             'last_login_at' => now(),
             'remember_token' => Str::random(60),
