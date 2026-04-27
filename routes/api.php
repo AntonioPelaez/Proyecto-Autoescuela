@@ -47,15 +47,9 @@ Route::middleware('auth:sanctum')->get('/me', [AuthController::class, 'me']);
 
 /*
 |--------------------------------------------------------------------------
-| Disponibilidad de profesores
+| Excepciones de disponibilidad
 |--------------------------------------------------------------------------
 */
-
-// Endpoint para ver mis clases
-Route::get('/my-classes', [ClassController::class, 'index'])->middleware('auth:sanctum');
-
-// Endpoint para gestionar excepciones de disponibilidad
-
 Route::get('/teachers/availability-exceptions', [TeacherAvailabiltyExceptionsController::class, 'index'])->middleware('auth:sanctum');
 Route::get('/teachers/availability-exceptions/{id}', [TeacherAvailabiltyExceptionsController::class, 'show'])->middleware('auth:sanctum');
 Route::put('/teachers/availability-exceptions/{id}', [TeacherAvailabiltyExceptionsController::class, 'update'])->middleware('auth:sanctum');
