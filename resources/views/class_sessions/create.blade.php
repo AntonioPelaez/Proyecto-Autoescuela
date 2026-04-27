@@ -49,11 +49,11 @@
 
 @section('scripts')
 <script>
-    window.apiHoursUrl       = "{{ url('api/availability-hours') }}";
-    window.apiStoreUrl       = "{{ url('api/class-sessions') }}";
-    window.apiDaySessionsUrl = "{{ url('api/class-sessions/day') }}";
-    window.apiCancelUrl      = "{{ url('api/class-sessions/cancel') }}";
-    window.apiConfirmUrl     = "{{ url('api/class-sessions/confirm') }}";
+    window.apiHoursUrl       = "{{ route('api.availability-hours') }}";
+    window.apiStoreUrl       = "{{ route('api.class-sessions.store') }}";
+    window.apiDaySessionsUrl = "{{ route('api.day-sessions') }}";
+    window.apiCancelUrl      = "{{ route('api.class-sessions.cancel') }}";
+    window.apiConfirmUrl     = "{{ route('api.class-sessions.confirm') }}";
 </script>
 
 <script src="{{ asset('js/class_sessions.js') }}"></script>
