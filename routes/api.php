@@ -45,72 +45,66 @@ Route::middleware('auth:sanctum')->get('/me', [AuthController::class, 'me']);
 
 /*
 |--------------------------------------------------------------------------
-| Disponibilidad de profesores
+| Excepciones de disponibilidad
 |--------------------------------------------------------------------------
 */
-
-// Endpoint para ver mis clases
-Route::get('/my-classes', [ClassController::class, 'index'])->middleware('auth:sanctum');
-
-// Endpoint para gestionar excepciones de disponibilidad
-
 Route::get('/teachers/availability-exceptions', [TeacherAvailabiltyExceptionsController::class, 'index'])->middleware('auth:sanctum');
 Route::get('/teachers/availability-exceptions/{id}', [TeacherAvailabiltyExceptionsController::class, 'show'])->middleware('auth:sanctum');
 Route::put('/teachers/availability-exceptions/{id}', [TeacherAvailabiltyExceptionsController::class, 'update'])->middleware('auth:sanctum');
 Route::post('/teachers/availability-exceptions', [TeacherAvailabiltyExceptionsController::class, 'store'])->middleware('auth:sanctum');
 Route::delete('/teachers/availability-exceptions/{id}', [TeacherAvailabiltyExceptionsController::class, 'destroy'])->middleware('auth:sanctum');
 
+/*
+|--------------------------------------------------------------------------
+| Horas disponibles (profesor individual)
+|--------------------------------------------------------------------------
+*/
+Route::get('/availability-hours', [ClassSessionController::class, 'hours'])
+    ->name('api.availability-hours');
 
 /*
 |--------------------------------------------------------------------------
-| Horas disponibles para reservar (profesor individual)
+| Slots disponibles (pueblo → profesores → slots)
 |--------------------------------------------------------------------------
 */
-Route::get('/availability-slots', [ClassSessionController::class, 'hours']);
-
-
+Route::get('/availability-slots', [ClassSessionController::class, 'availabilitySlots'])
+    ->name('api.availability-slots');
 
 /*
 |--------------------------------------------------------------------------
-| Slots disponibles para reservar (pueblo → profesores → slots)
+| Consultar clases del día
 |--------------------------------------------------------------------------
 */
-Route::get('/availability-slots', [ClassSessionController::class, 'availabilitySlots']);
+Route::get('/class-sessions/day', [ClassSessionController::class, 'daySessions'])
+    ->name('api.day-sessions');
 
 /*
 |--------------------------------------------------------------------------
-| Slots disponibles para reservar (pueblo → profesores → slots)
+| Crear reserva
 |--------------------------------------------------------------------------
 */
-Route::get('/availability-slots', [ClassSessionController::class, 'availabilitySlots']);
-
-/*
-| Consultar clases del día (confirmadas + pendientes)
-|--------------------------------------------------------------------------
-*/
-Route::get('/class-sessions/day', [ClassSessionController::class, 'daySessions']);
+Route::post('/class-sessions', [ClassSessionController::class, 'store'])
+    ->name('api.class-sessions.store');
 
 /*
 |--------------------------------------------------------------------------
-| Crear reserva (pendiente)
+| Cancelar reserva
 |--------------------------------------------------------------------------
 */
-Route::post('/class-sessions', [ClassSessionController::class, 'store']);
+Route::post('/class-sessions/cancel', [ClassSessionController::class, 'cancel'])
+    ->name('api.class-sessions.cancel');
 
 /*
 |--------------------------------------------------------------------------
-| Cancelar reserva (marca status = cancelled)
+| Confirmar reserva
 |--------------------------------------------------------------------------
 */
-Route::post('/class-sessions/cancel', [ClassSessionController::class, 'cancel']);
+Route::post('/class-sessions/confirm', [ClassSessionController::class, 'confirm'])
+    ->name('api.class-sessions.confirm');
 
 /*
 |--------------------------------------------------------------------------
-| Confirmar reserva (pending → confirmed)
+| Admin: consultar clases
 |--------------------------------------------------------------------------
 */
-Route::post('/class-sessions/confirm', [ClassSessionController::class, 'confirm']);
-
-// Endpoint para que el admin pueda consultar todas las clases con filtros
 Route::get('/admin/classes', [AdminClassController::class, 'index'])->middleware('auth:sanctum');
-
