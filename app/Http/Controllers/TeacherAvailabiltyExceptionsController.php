@@ -8,6 +8,9 @@ use App\Models\TeacherAvailabilityException;
 
 class TeacherAvailabiltyExceptionsController extends Controller
 {
+    /**
+     * Mostrar todas las excepciones de disponibilidad para el profesor autenticado.
+     */
     public function index(Request $request)
     {
         $teacher = $request->user()->teacherProfile;
@@ -20,6 +23,9 @@ class TeacherAvailabiltyExceptionsController extends Controller
 
         return response()->json($exceptions);
     }
+    /**
+     * Mostrar una excepción de disponibilidad específica por su ID para el profesor autenticado.
+     */
     public function show(Request $request, $id)
     {
         $teacher = $request->user()->teacherProfile;
@@ -36,6 +42,9 @@ class TeacherAvailabiltyExceptionsController extends Controller
 
         return response()->json($exception);
     }
+    /**
+     * Crear una nueva excepción de disponibilidad para el profesor autenticado.
+     */
     public function store(Request $request)
     {
         $request->validate([
@@ -68,6 +77,9 @@ class TeacherAvailabiltyExceptionsController extends Controller
             'exception' => $exception
         ]);
     }
+    /**
+     * Actualizar una excepción de disponibilidad específica por su ID para el profesor autenticado.
+     */
     public function update(Request $request, $id)
     {
         $request->validate([
@@ -105,6 +117,9 @@ class TeacherAvailabiltyExceptionsController extends Controller
             'exception' => $exception
         ]);
     }
+    /**
+     * Eliminar una excepción de disponibilidad específica por su ID para el profesor autenticado.
+     */
     public function destroy(Request $request, $id)
     {
         $teacher = $request->user()->teacherProfile;

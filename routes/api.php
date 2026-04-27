@@ -10,12 +10,14 @@ use App\Http\Controllers\ClassSessionController;
 use App\Http\Controllers\ClassSessionQueryController;
 use App\Http\Controllers\ClassController;
 use App\Http\Controllers\AdminClassController;
+use App\Http\Controllers\TeacherProfileController;
 
 /*
 |--------------------------------------------------------------------------
 | Rutas de Autenticación (/api/auth/...)
 |--------------------------------------------------------------------------
 */
+
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login']);
     Route::post('/register', [AuthController::class, 'register']);
@@ -114,3 +116,9 @@ Route::post('/class-sessions/confirm', [ClassSessionController::class, 'confirm'
 // Endpoint para que el admin pueda consultar todas las clases con filtros
 Route::get('/admin/classes', [AdminClassController::class, 'index'])->middleware('auth:sanctum');
 
+/*
+|--------------------------------------------------------------------------
+| Consultar reservas de un profesor a uno o varios alumnos (clases reservadas)
+|--------------------------------------------------------------------------
+*/
+Route::get('/teacher/reservas', [TeacherProfileController::class, 'reservasProfesor'])->middleware('auth:sanctum');

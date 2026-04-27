@@ -82,6 +82,7 @@ class AuthController extends Controller
             'message' => 'Login correcto',
             'token' => $token,
             'user' => $user,
+            'role' => $user->role->name,
         ]);
     }
     /**

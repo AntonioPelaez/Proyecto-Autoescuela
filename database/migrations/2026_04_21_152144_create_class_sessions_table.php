@@ -22,7 +22,7 @@ return new class extends Migration
             $table->time('end_time');
             $table->dateTime('slot_starts_at');
             $table->dateTime('slot_ends_at');
-            $table->string('status',20);
+            $table->string('status',20)->default('booked');
             $table->string('payment_status',20);
             $table->decimal('price',10,2)->nullable();
             $table->string('booking_reference',40)->unique();
