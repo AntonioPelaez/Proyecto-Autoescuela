@@ -63,12 +63,21 @@ Route::middleware('auth:sanctum')->group(function () {
 /**
  * CRUD DE PROFESORES
  */
-Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/teacher', [TeacherProfileController::class, 'index']);
-    Route::get('/teacher/{id}', [TeacherProfileController::class, 'show']);
-    Route::post('/teacher', [TeacherProfileController::class, 'store']);
-    Route::put('/teacher/{id}', [TeacherProfileController::class, 'update']);
-    Route::delete('/teacher/{id}', [TeacherProfileController::class, 'destroy']);
+Route::middleware('auth:sanctum')->prefix('teachers')->group(function () {
+    Route::get('/', [TeacherProfileController::class, 'index']);
+    Route::get('/{id}', [TeacherProfileController::class, 'show']);
+    Route::post('/', [TeacherProfileController::class, 'store']);
+    Route::put('/{id}', [TeacherProfileController::class, 'update']);
+    Route::delete('/{id}', [TeacherProfileController::class, 'destroy']);
+
+    // Notas del profesor
+    Route::get('/{id}/notes', [TeacherProfileController::class, 'notes']);
+    Route::put('/{id}/notes', [TeacherProfileController::class, 'saveNotes']);
+
+    // Vehículos asignados al profesor
+    Route::get('/{id}/vehicles', [TeacherProfileController::class, 'vehicles']);
+    Route::post('/{id}/vehicles/assign', [TeacherProfileController::class, 'assignVehicle']);
+    Route::delete('/{id}/vehicles/{vehicle}/remove', [TeacherProfileController::class, 'removeVehicle']);
 });
 
 /*
@@ -78,24 +87,29 @@ Route::middleware('auth:sanctum')->group(function () {
 */
 Route::get('/teachers/reservas', [TeacherClassController::class, 'reservasProfesor'])->middleware('auth:sanctum');
 /**
- * CRUD DE VEHÍCULOS
+ * CRUD DE VEHÍCULOS (API)
  */
-Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/vehicles', [VehicleController::class, 'index']);
-    Route::get('/vehicles/{id}', [VehicleController::class, 'show']);
-    Route::post('/vehicles', [VehicleController::class, 'store']);
-    Route::put('/vehicles/{id}', [VehicleController::class, 'update']);
-    Route::delete('/vehicles/{id}', [VehicleController::class, 'destroy']);
+Route::middleware('auth:sanctum')->prefix('vehicles')->group(function () {
+    Route::get('/', [VehicleController::class, 'index']);
+    Route::get('/{id}', [VehicleController::class, 'show']);
+    Route::post('/', [VehicleController::class, 'store']);
+    Route::put('/{id}', [VehicleController::class, 'update']);
+    Route::delete('/{id}', [VehicleController::class, 'destroy']);
 });
-/**
- * CRUD DE ESTUDIANTES
+
+/** 
+ * CRUD DE ESTUDIANTES (API)
  */
-Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/students', [StudentProfileController::class, 'index']);
-    Route::get('/students/{id}', [StudentProfileController::class, 'show']);
-    Route::post('/students', [StudentProfileController::class, 'store']);
-    Route::put('/students/{id}', [StudentProfileController::class, 'update']);
-    Route::delete('/students/{id}', [StudentProfileController::class, 'destroy']);
+Route::middleware('auth:sanctum')->prefix('students')->group(function () {
+    Route::get('/', [StudentProfileController::class, 'index']);
+    Route::get('/{id}', [StudentProfileController::class, 'show']);
+    Route::post('/', [StudentProfileController::class, 'store']);
+    Route::put('/{id}', [StudentProfileController::class, 'update']);
+    Route::delete('/{id}', [StudentProfileController::class, 'destroy']);
+
+    // Notas del alumno
+    Route::get('/{id}/notes', [StudentProfileController::class, 'notes']);
+    Route::put('/{id}/notes', [StudentProfileController::class, 'saveNotes']);
 });
 /**
  * Ruta que permite a un alumno autenticado consultar sus clases reservadas, con detalles del profesor y pueblo.
