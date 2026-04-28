@@ -18,7 +18,7 @@ class StudentProfile extends Model
 
     public function user()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(\App\Models\User::class);
     }
 
     public function classSessions()
@@ -26,4 +26,3 @@ class StudentProfile extends Model
         return $this->hasMany(ClassSession::class, 'student_profile_id');
     }
 }
-

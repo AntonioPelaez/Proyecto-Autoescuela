@@ -11,7 +11,7 @@ use Illuminate\Http\Request;
 class TeacherProfileController extends Controller
 {
     /**
-     * LISTADO DE PROFESORES
+     * LISTADO DE PROFESORES (solo role_id = 2)
      */
     public function index()
     {
@@ -21,13 +21,15 @@ class TeacherProfileController extends Controller
             })
             ->get();
 
-        return view('teachers.index', compact('teachers'));
+        return response()->json([
+            'teachers' => $teachers
+        ]);
     }
 
     /**
-     * FORMULARIO DE CREACIÓN
+     * LISTA DE USUARIOS DISPONIBLES PARA SER PROFESORES
      */
-    public function create()
+    public function availableUsers()
     {
         $users = User::where('role_id', 2)
             ->whereDoesntHave('teacherProfile')
@@ -35,49 +37,53 @@ class TeacherProfileController extends Controller
 
         $towns = Town::all();
 
-        return view('teachers.create', compact('users', 'towns'));
+        return response()->json([
+            'users' => $users,
+            'towns' => $towns
+        ]);
     }
 
     /**
-     * GUARDAR PROFESOR
+     * CREAR PROFESOR
      */
     public function store(Request $request)
     {
         $request->validate([
-            'user_id' => 'required|exists:users,id',
-            'dni' => 'nullable|string|max:20',
-            'license_number' => 'required|string|max:50',
-            'notes' => 'nullable|string',
-            'is_active_for_booking' => 'nullable|boolean',
-            'towns' => 'nullable|array',
+            'user_id'              => 'required|exists:users,id',
+            'dni'                  => 'nullable|string|max:20',
+            'license_number'       => 'required|string|max:50',
+            'notes'                => 'nullable|string',
+            'is_active_for_booking'=> 'nullable|boolean',
+            'towns'                => 'nullable|array',
         ]);
 
         $teacher = TeacherProfile::create([
-            'user_id' => $request->user_id,
-            'dni' => $request->dni,
-            'license_number' => $request->license_number,
-            'notes' => $request->notes,
-            'is_active_for_booking' => $request->is_active_for_booking ? 1 : 0,
+            'user_id'              => $request->user_id,
+            'dni'                  => $request->dni,
+            'license_number'       => $request->license_number,
+            'notes'                => $request->notes,
+            'is_active_for_booking'=> $request->is_active_for_booking ? 1 : 0,
         ]);
 
-        /**
-         * 🔥 ASIGNAR AUTOMÁTICAMENTE LOS PUEBLOS SELECCIONADOS
-         * Esto llena la tabla teacher_towns sin que tengas que hacerlo a mano.
-         */
+        // Asignar pueblos automáticamente
         if ($request->towns) {
             $teacher->towns()->sync($request->towns);
         }
 
-        return redirect()->route('teachers.index')->with('success', 'Profesor creado correctamente');
+        return response()->json([
+            'message' => 'Profesor creado correctamente',
+            'teacher' => $teacher->load('towns')
+        ]);
     }
 
     /**
-     * FORMULARIO DE EDICIÓN
+     * MOSTRAR PROFESOR
      */
-    public function edit(TeacherProfile $teacher)
+    public function show(TeacherProfile $teacher)
     {
-        $towns = Town::all();
-        return view('teachers.edit', compact('teacher', 'towns'));
+        return response()->json([
+            'teacher' => $teacher->load(['user', 'towns', 'vehicles'])
+        ]);
     }
 
     /**
@@ -86,24 +92,25 @@ class TeacherProfileController extends Controller
     public function update(Request $request, TeacherProfile $teacher)
     {
         $request->validate([
-            'dni' => 'nullable|string|max:20',
-            'license_number' => 'required|string|max:50',
-            'is_active_for_booking' => 'nullable|boolean',
-            'towns' => 'nullable|array',
+            'dni'                  => 'nullable|string|max:20',
+            'license_number'       => 'required|string|max:50',
+            'is_active_for_booking'=> 'nullable|boolean',
+            'towns'                => 'nullable|array',
         ]);
 
         $teacher->update([
-            'dni' => $request->dni,
-            'license_number' => $request->license_number,
-            'is_active_for_booking' => $request->is_active_for_booking ? 1 : 0,
+            'dni'                  => $request->dni,
+            'license_number'       => $request->license_number,
+            'is_active_for_booking'=> $request->is_active_for_booking ? 1 : 0,
         ]);
 
-        /**
-         * 🔥 ACTUALIZAR PUEBLOS ASIGNADOS
-         */
+        // Actualizar pueblos
         $teacher->towns()->sync($request->towns ?? []);
 
-        return redirect()->route('teachers.index')->with('success', 'Profesor actualizado correctamente');
+        return response()->json([
+            'message' => 'Profesor actualizado correctamente',
+            'teacher' => $teacher->load('towns')
+        ]);
     }
 
     /**
@@ -112,17 +119,25 @@ class TeacherProfileController extends Controller
     public function destroy(TeacherProfile $teacher)
     {
         $teacher->delete();
-        return redirect()->route('teachers.index')->with('success', 'Profesor eliminado correctamente');
+
+        return response()->json([
+            'message' => 'Profesor eliminado correctamente'
+        ]);
     }
 
     /**
-     * NOTAS
+     * OBTENER NOTAS DEL PROFESOR
      */
     public function notes(TeacherProfile $teacher)
     {
-        return view('teachers.notes', compact('teacher'));
+        return response()->json([
+            'notes' => $teacher->notes
+        ]);
     }
 
+    /**
+     * GUARDAR NOTAS DEL PROFESOR
+     */
     public function saveNotes(Request $request, TeacherProfile $teacher)
     {
         $request->validate([
@@ -133,18 +148,25 @@ class TeacherProfileController extends Controller
             'notes' => $request->notes,
         ]);
 
-        return redirect()->route('teachers.edit', $teacher)->with('success', 'Notas actualizadas');
+        return response()->json([
+            'message' => 'Notas actualizadas correctamente',
+            'teacher' => $teacher
+        ]);
     }
 
     /**
-     * PÁGINA DE ASIGNACIÓN DE VEHÍCULOS
+     * LISTAR VEHÍCULOS ASIGNADOS Y DISPONIBLES
      */
     public function vehicles(TeacherProfile $teacher)
     {
         $vehicles = Vehicle::all();
         $assigned = $teacher->vehicles()->pluck('vehicle_id')->toArray();
 
-        return view('teachers.vehicles', compact('teacher', 'vehicles', 'assigned'));
+        return response()->json([
+            'teacher_id' => $teacher->id,
+            'vehicles'   => $vehicles,
+            'assigned'   => $assigned
+        ]);
     }
 
     /**
@@ -154,19 +176,22 @@ class TeacherProfileController extends Controller
     {
         $request->validate([
             'vehicle_id' => 'required|exists:vehicles,id',
-            'start_at' => 'nullable|date',
-            'end_at' => 'nullable|date|after_or_equal:start_at',
+            'start_at'   => 'nullable|date',
+            'end_at'     => 'nullable|date|after_or_equal:start_at',
         ]);
 
         $teacher->vehicles()->attach($request->vehicle_id, [
             'is_primary' => 0,
-            'starts_at' => $request->start_at,
-            'ends_at' => $request->end_at,
+            'starts_at'  => $request->start_at,
+            'ends_at'    => $request->end_at,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
-        return back()->with('success', 'Vehículo asignado correctamente.');
+        return response()->json([
+            'message' => 'Vehículo asignado correctamente',
+            'vehicles' => $teacher->vehicles
+        ]);
     }
 
     /**
@@ -176,6 +201,9 @@ class TeacherProfileController extends Controller
     {
         $teacher->vehicles()->detach($vehicle->id);
 
-        return back()->with('success', 'Vehículo desasignado correctamente.');
+        return response()->json([
+            'message' => 'Vehículo desasignado correctamente',
+            'vehicles' => $teacher->vehicles
+        ]);
     }
 }
