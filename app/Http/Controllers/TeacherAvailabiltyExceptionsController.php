@@ -3,13 +3,12 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\TeacherProfile;
 use App\Models\TeacherAvailabilityException;
 
 class TeacherAvailabiltyExceptionsController extends Controller
 {
     /**
-     * Mostrar todas las excepciones de disponibilidad para el profesor autenticado.
+     * LISTAR EXCEPCIONES DEL PROFESOR AUTENTICADO
      */
     public function index(Request $request)
     {
@@ -21,10 +20,14 @@ class TeacherAvailabiltyExceptionsController extends Controller
 
         $exceptions = TeacherAvailabilityException::where('teacher_profile_id', $teacher->id)->get();
 
-        return response()->json($exceptions);
+        return response()->json([
+            'teacher_id' => $teacher->id,
+            'exceptions' => $exceptions
+        ]);
     }
+
     /**
-     * Mostrar una excepción de disponibilidad específica por su ID para el profesor autenticado.
+     * MOSTRAR UNA EXCEPCIÓN ESPECÍFICA
      */
     public function show(Request $request, $id)
     {
@@ -34,26 +37,32 @@ class TeacherAvailabiltyExceptionsController extends Controller
             return response()->json(['message' => 'No eres profesor'], 403);
         }
 
-        $exception = TeacherAvailabilityException::where('id', $id)->where('teacher_profile_id', $teacher->id)->first();
+        $exception = TeacherAvailabilityException::where('id', $id)
+            ->where('teacher_profile_id', $teacher->id)
+            ->first();
 
         if (!$exception) {
             return response()->json(['message' => 'Excepción no encontrada'], 404);
         }
 
-        return response()->json($exception);
+        return response()->json([
+            'teacher_id' => $teacher->id,
+            'exception'  => $exception
+        ]);
     }
+
     /**
-     * Crear una nueva excepción de disponibilidad para el profesor autenticado.
+     * CREAR UNA EXCEPCIÓN
      */
     public function store(Request $request)
     {
         $request->validate([
             'exception_date' => 'required|date',
-            'type' => 'required|string|max:20',
-            'starts_time' => 'nullable|date_format:H:i',
-            'end_time' => 'nullable|date_format:H:i',
-            'town_id' => 'nullable|exists:towns,id',
-            'reason' => 'nullable|string|max:150'
+            'type'           => 'required|string|max:20',
+            'starts_time'    => 'nullable|date_format:H:i',
+            'end_time'       => 'nullable|date_format:H:i',
+            'town_id'        => 'nullable|exists:towns,id',
+            'reason'         => 'nullable|string|max:150'
         ]);
 
         $teacher = $request->user()->teacherProfile;
@@ -64,31 +73,32 @@ class TeacherAvailabiltyExceptionsController extends Controller
 
         $exception = TeacherAvailabilityException::create([
             'teacher_profile_id' => $teacher->id,
-            'town_id' => $request->town_id,
-            'exception_date' => $request->exception_date,
-            'starts_time' => $request->starts_time,
-            'end_time' => $request->end_time,
-            'type' => $request->type,
-            'reason' => $request->reason
+            'town_id'            => $request->town_id,
+            'exception_date'     => $request->exception_date,
+            'starts_time'        => $request->starts_time,
+            'end_time'           => $request->end_time,
+            'type'               => $request->type,
+            'reason'             => $request->reason
         ]);
 
         return response()->json([
-            'message' => 'Excepción registrada correctamente',
+            'message'   => 'Excepción registrada correctamente',
             'exception' => $exception
         ]);
     }
+
     /**
-     * Actualizar una excepción de disponibilidad específica por su ID para el profesor autenticado.
+     * ACTUALIZAR UNA EXCEPCIÓN
      */
     public function update(Request $request, $id)
     {
         $request->validate([
             'exception_date' => 'required|date',
-            'type' => 'required|string|max:20',
-            'starts_time' => 'nullable|date_format:H:i',
-            'end_time' => 'nullable|date_format:H:i',
-            'town_id' => 'nullable|exists:towns,id',
-            'reason' => 'nullable|string|max:150'
+            'type'           => 'required|string|max:20',
+            'starts_time'    => 'nullable|date_format:H:i',
+            'end_time'       => 'nullable|date_format:H:i',
+            'town_id'        => 'nullable|exists:towns,id',
+            'reason'         => 'nullable|string|max:150'
         ]);
 
         $teacher = $request->user()->teacherProfile;
@@ -97,28 +107,31 @@ class TeacherAvailabiltyExceptionsController extends Controller
             return response()->json(['message' => 'No eres profesor'], 403);
         }
 
-        $exception = TeacherAvailabilityException::where('id', $id)->where('teacher_profile_id', $teacher->id)->first();
+        $exception = TeacherAvailabilityException::where('id', $id)
+            ->where('teacher_profile_id', $teacher->id)
+            ->first();
 
         if (!$exception) {
             return response()->json(['message' => 'Excepción no encontrada'], 404);
         }
 
         $exception->update([
-            'town_id' => $request->town_id,
+            'town_id'        => $request->town_id,
             'exception_date' => $request->exception_date,
-            'starts_time' => $request->starts_time,
-            'end_time' => $request->end_time,
-            'type' => $request->type,
-            'reason' => $request->reason
+            'starts_time'    => $request->starts_time,
+            'end_time'       => $request->end_time,
+            'type'           => $request->type,
+            'reason'         => $request->reason
         ]);
 
         return response()->json([
-            'message' => 'Excepción actualizada correctamente',
+            'message'   => 'Excepción actualizada correctamente',
             'exception' => $exception
         ]);
     }
+
     /**
-     * Eliminar una excepción de disponibilidad específica por su ID para el profesor autenticado.
+     * ELIMINAR UNA EXCEPCIÓN
      */
     public function destroy(Request $request, $id)
     {
@@ -128,7 +141,9 @@ class TeacherAvailabiltyExceptionsController extends Controller
             return response()->json(['message' => 'No eres profesor'], 403);
         }
 
-        $exception = TeacherAvailabilityException::where('id', $id)->where('teacher_profile_id', $teacher->id)->first();
+        $exception = TeacherAvailabilityException::where('id', $id)
+            ->where('teacher_profile_id', $teacher->id)
+            ->first();
 
         if (!$exception) {
             return response()->json(['message' => 'Excepción no encontrada'], 404);
@@ -136,6 +151,8 @@ class TeacherAvailabiltyExceptionsController extends Controller
 
         $exception->delete();
 
-        return response()->json(['message' => 'Excepción eliminada correctamente']);
+        return response()->json([
+            'message' => 'Excepción eliminada correctamente'
+        ]);
     }
 }

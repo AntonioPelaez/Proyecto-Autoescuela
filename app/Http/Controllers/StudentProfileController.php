@@ -9,61 +9,68 @@ use Illuminate\Http\Request;
 class StudentProfileController extends Controller
 {
     /**
-     * LISTADO DE ALUMNOS
-     * Solo usuarios con rol alumno (role_id = 3)
+     * LISTADO DE ALUMNOS (solo role_id = 3)
      */
     public function index()
     {
         $students = StudentProfile::with('user')
             ->whereHas('user', function ($q) {
-                $q->where('role_id', 3); // Solo alumnos
+                $q->where('role_id', 3);
             })
             ->get();
 
-        return view('students.index', compact('students'));
+        return response()->json([
+            'students' => $students
+        ]);
     }
 
     /**
-     * FORMULARIO DE CREACIÓN
-     * Usuarios con rol alumno que NO tengan perfil
+     * LISTA DE USUARIOS QUE PUEDEN SER ALUMNOS (role_id = 3 sin perfil)
      */
-    public function create()
+    public function availableUsers()
     {
         $users = User::where('role_id', 3)
             ->whereDoesntHave('studentProfile')
             ->get();
 
-        return view('students.create', compact('users'));
+        return response()->json([
+            'users' => $users
+        ]);
     }
 
     /**
-     * GUARDAR ALUMNO
+     * CREAR PERFIL DE ALUMNO
      */
     public function store(Request $request)
     {
         $request->validate([
-            'user_id' => 'required|exists:users,id',
-            'dni' => 'nullable|string|max:20',
-            'birth_date' => 'nullable|date',
+            'user_id'      => 'required|exists:users,id',
+            'dni'          => 'nullable|string|max:20',
+            'birth_date'   => 'nullable|date',
             'pickup_notes' => 'nullable|string|max:255',
         ]);
 
-        StudentProfile::create([
-            'user_id' => $request->user_id,
-            'dni' => $request->dni,
-            'birth_date' => $request->birth_date,
+        $student = StudentProfile::create([
+            'user_id'      => $request->user_id,
+            'dni'          => $request->dni,
+            'birth_date'   => $request->birth_date,
             'pickup_notes' => $request->pickup_notes,
         ]);
 
-        return redirect()->route('students.index')->with('success', 'Alumno creado correctamente');
+        return response()->json([
+            'message' => 'Alumno creado correctamente',
+            'student' => $student
+        ]);
     }
 
     /**
-     * FORMULARIO DE EDICIÓN
+     * MOSTRAR UN ALUMNO
      */
-    public function edit(StudentProfile $student)
+    public function show(StudentProfile $student)
     {
-        return view('students.edit', compact('student'));
+        return response()->json([
+            'student' => $student->load('user')
+        ]);
     }
 
     /**
@@ -72,18 +79,21 @@ class StudentProfileController extends Controller
     public function update(Request $request, StudentProfile $student)
     {
         $request->validate([
-            'dni' => 'nullable|string|max:20',
-            'birth_date' => 'nullable|date',
+            'dni'          => 'nullable|string|max:20',
+            'birth_date'   => 'nullable|date',
             'pickup_notes' => 'nullable|string|max:255',
         ]);
 
         $student->update([
-            'dni' => $request->dni,
-            'birth_date' => $request->birth_date,
+            'dni'          => $request->dni,
+            'birth_date'   => $request->birth_date,
             'pickup_notes' => $request->pickup_notes,
         ]);
 
-        return redirect()->route('students.index')->with('success', 'Alumno actualizado correctamente');
+        return response()->json([
+            'message' => 'Alumno actualizado correctamente',
+            'student' => $student
+        ]);
     }
 
     /**
@@ -92,15 +102,20 @@ class StudentProfileController extends Controller
     public function destroy(StudentProfile $student)
     {
         $student->delete();
-        return redirect()->route('students.index')->with('success', 'Alumno eliminado correctamente');
+
+        return response()->json([
+            'message' => 'Alumno eliminado correctamente'
+        ]);
     }
 
     /**
-     * NOTAS DEL ALUMNO
+     * OBTENER NOTAS DEL ALUMNO
      */
     public function notes(StudentProfile $student)
     {
-        return view('students.notes', compact('student'));
+        return response()->json([
+            'notes' => $student->pickup_notes
+        ]);
     }
 
     /**
@@ -116,6 +131,9 @@ class StudentProfileController extends Controller
             'pickup_notes' => $request->pickup_notes,
         ]);
 
-        return redirect()->route('students.edit', $student)->with('success', 'Notas actualizadas');
+        return response()->json([
+            'message' => 'Notas actualizadas correctamente',
+            'student' => $student
+        ]);
     }
 }

@@ -15,96 +15,76 @@ class ClassSessionController extends Controller
 {
     /*
     |--------------------------------------------------------------------------
-    | FORMULARIO BLADE PARA CREAR CLASE (EVITA EL ERROR create())
+    | Obtener horas disponibles (profesor individual)
     |--------------------------------------------------------------------------
     */
-    public function create()
+    public function hours(Request $request)
     {
-        $towns = \App\Models\Town::orderBy('name')->get();
-        $teachers = \App\Models\TeacherProfile::with('user')->get();
-        $vehicles = \App\Models\Vehicle::all();
+        $request->validate([
+            'town_id'    => 'required|integer',
+            'teacher_id' => 'required|integer',
+            'date'       => 'required|date',
+        ]);
 
-        return view('class_sessions.create', compact('towns', 'teachers', 'vehicles'));
-    }
+        $townId    = $request->town_id;
+        $teacherId = $request->teacher_id;
+        $date      = $request->date;
 
+        $dayOfWeek = Carbon::parse($date)->dayOfWeekIso;
 
-    /*
-    |--------------------------------------------------------------------------
-    | Obtener horas disponibles (SIN teacher_id)
-    |--------------------------------------------------------------------------
-    */
- public function hours(Request $request)
-{
-    $request->validate([
-        'town_id'    => 'required|integer',
-        'teacher_id' => 'required|integer',
-        'date'       => 'required|date',
-    ]);
+        // Disponibilidad semanal
+        $availabilityCollection = TeacherWeeklyAvailability::where('teacher_profile_id', $teacherId)
+            ->where('town_id', $townId)
+            ->where('day_of_week', $dayOfWeek)
+            ->get();
 
-    $townId    = $request->town_id;
-    $teacherId = $request->teacher_id;
-    $date      = $request->date;
-
-    // 1. Día de la semana
-    $dayOfWeek = Carbon::parse($date)->dayOfWeekIso;
-
-    // 2. Disponibilidad con GET (colección)
-    $availabilityCollection = TeacherWeeklyAvailability::where('teacher_profile_id', $teacherId)
-        ->where('town_id', $townId)
-        ->where('day_of_week', $dayOfWeek)
-        ->get();
-
-    if ($availabilityCollection->isEmpty()) {
-        return response()->json(['hours' => []]);
-    }
-
-    // 3. Tomamos el primer elemento SIN usar first()
-    $availability = $availabilityCollection->get(0);
-
-    // 4. Rango horario
-    $start = Carbon::parse("$date {$availability->starts_time}");
-    $end   = Carbon::parse("$date {$availability->end_time}");
-
-    // 5. Vehículo asignado
-    $vehicle = TeacherVehicle::getVehicleForDate($teacherId, $date);
-    if (!$vehicle) {
-        return response()->json(['hours' => []]);
-    }
-
-    // 6. Clases confirmadas
-    $existing = ClassSession::where('teacher_profile_id', $teacherId)
-        ->where('session_date', $date)
-        ->where('status', 'confirmed')
-        ->pluck('slot_starts_at')
-        ->map(fn($s) => Carbon::parse($s)->format('H:i'))
-        ->toArray();
-
-    // 7. Generar intervalos
-    $intervals = [];
-    $cursor    = $start->copy();
-
-    while ($cursor->lt($end)) {
-        $slotStart = $cursor->copy();
-        $slotEnd   = $cursor->copy()->addMinutes(45);
-
-        if ($slotEnd->lte($end)) {
-            $hour = $slotStart->format('H:i');
-
-            $intervals[] = [
-                'start'      => $slotStart->format('Y-m-d H:i:s'),
-                'end'        => $slotEnd->format('Y-m-d H:i:s'),
-                'vehicle_id' => $vehicle->vehicle_id,
-                'reserved'   => in_array($hour, $existing),
-            ];
+        if ($availabilityCollection->isEmpty()) {
+            return response()->json(['hours' => []]);
         }
 
-        $cursor->addMinutes(45);
+        $availability = $availabilityCollection->get(0);
+
+        $start = Carbon::parse("$date {$availability->starts_time}");
+        $end   = Carbon::parse("$date {$availability->end_time}");
+
+        // Vehículo asignado
+        $vehicle = TeacherVehicle::getVehicleForDate($teacherId, $date);
+        if (!$vehicle) {
+            return response()->json(['hours' => []]);
+        }
+
+        // Clases confirmadas
+        $existing = ClassSession::where('teacher_profile_id', $teacherId)
+            ->where('session_date', $date)
+            ->where('status', 'confirmed')
+            ->pluck('slot_starts_at')
+            ->map(fn($s) => Carbon::parse($s)->format('H:i'))
+            ->toArray();
+
+        // Generar intervalos
+        $intervals = [];
+        $cursor    = $start->copy();
+
+        while ($cursor->lt($end)) {
+            $slotStart = $cursor->copy();
+            $slotEnd   = $cursor->copy()->addMinutes(45);
+
+            if ($slotEnd->lte($end)) {
+                $hour = $slotStart->format('H:i');
+
+                $intervals[] = [
+                    'start'      => $slotStart->format('Y-m-d H:i:s'),
+                    'end'        => $slotEnd->format('Y-m-d H:i:s'),
+                    'vehicle_id' => $vehicle->vehicle_id,
+                    'reserved'   => in_array($hour, $existing),
+                ];
+            }
+
+            $cursor->addMinutes(45);
+        }
+
+        return response()->json(['hours' => $intervals]);
     }
-
-    return response()->json(['hours' => $intervals]);
-}
-
-
 
     /*
     |--------------------------------------------------------------------------
@@ -122,7 +102,7 @@ class ClassSessionController extends Controller
         $date      = Carbon::parse($request->date);
         $dayOfWeek = $date->dayOfWeekIso;
 
-        // 1. Profesores asignados al pueblo
+        // Profesores asignados al pueblo
         $teachers = TeacherTown::where('town_id', $townId)->pluck('teacher_profile_id');
 
         if ($teachers->isEmpty()) {
@@ -136,7 +116,7 @@ class ClassSessionController extends Controller
 
         foreach ($teachers as $teacherId) {
 
-            // 2. Disponibilidad semanal (solo por teacher + día)
+            // Disponibilidad semanal
             $availability = TeacherWeeklyAvailability::where('teacher_profile_id', $teacherId)
                 ->where('day_of_week', $dayOfWeek)
                 ->first();
@@ -145,20 +125,20 @@ class ClassSessionController extends Controller
                 continue;
             }
 
-            // 3. Vehículo válido para la fecha
+            // Vehículo válido
             $vehicle = TeacherVehicle::getVehicleForDate($teacherId, $date->toDateString());
             if (!$vehicle) {
                 continue;
             }
 
-            // 4. Clases ya reservadas
+            // Clases reservadas
             $reserved = ClassSession::where('teacher_profile_id', $teacherId)
                 ->where('session_date', $date->toDateString())
                 ->pluck('slot_starts_at')
                 ->map(fn($s) => Carbon::parse($s)->format('H:i'))
                 ->toArray();
 
-            // 5. Generar slots de 45 minutos
+            // Generar slots
             $slots  = [];
             $cursor = Carbon::parse($date->toDateString() . ' ' . $availability->starts_time);
             $end    = Carbon::parse($date->toDateString() . ' ' . $availability->end_time);
@@ -196,7 +176,7 @@ class ClassSessionController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | Consultar clases del día (confirmadas + pendientes)
+    | Consultar clases del día
     |--------------------------------------------------------------------------
     */
     public function daySessions(Request $request)
@@ -232,7 +212,7 @@ class ClassSessionController extends Controller
 
     /*
     |--------------------------------------------------------------------------
-    | Crear reserva (pendiente)
+    | Crear reserva
     |--------------------------------------------------------------------------
     */
     public function store(Request $request)
@@ -255,7 +235,7 @@ class ClassSessionController extends Controller
             $start = Carbon::parse($request->start);
             $end   = Carbon::parse($request->end);
 
-            // 1. Si hay una clase confirmada → NO permitir
+            // Clases confirmadas solapadas
             $overlap = ClassSession::where('teacher_profile_id', $teacherId)
                 ->where('session_date', $date)
                 ->where('status', 'confirmed')
@@ -269,7 +249,7 @@ class ClassSessionController extends Controller
                 return response()->json(['error' => 'Hora ocupada'], 422);
             }
 
-            // 2. Cancelar clases pendientes solapadas
+            // Cancelar pendientes solapadas
             ClassSession::where('teacher_profile_id', $teacherId)
                 ->where('session_date', $date)
                 ->where('status', 'pending')
@@ -282,7 +262,7 @@ class ClassSessionController extends Controller
                     'cancelled_at' => now()
                 ]);
 
-            // 3. Crear clase pendiente
+            // Crear clase pendiente
             $session = ClassSession::create([
                 'student_profile_id' => $request->student_id,
                 'teacher_profile_id' => $teacherId,
@@ -298,7 +278,10 @@ class ClassSessionController extends Controller
                 'booking_reference'  => strtoupper(Str::random(10)),
             ]);
 
-            return response()->json(['message' => 'Reserva pendiente creada', 'session' => $session]);
+            return response()->json([
+                'message' => 'Reserva pendiente creada',
+                'session' => $session
+            ]);
         });
     }
 

@@ -3,121 +3,128 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use App\Models\Role; // Importamos el modelo Role
+use App\Models\Role;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
     /**
-     * LISTADO DE USUARIOS
-     * - Carga los roles con with('role')
-     * - Permite buscar por nombre, apellidos o email
+     * LISTADO DE USUARIOS + BÚSQUEDA
      */
     public function index(Request $request)
     {
         $search = $request->input('search');
 
-        $users = User::with('role') // Cargamos el rol asociado
+        $users = User::with('role')
             ->when($search, function ($query, $search) {
-                return $query->where('name', 'LIKE', "%{$search}%")
-                             ->orWhere('surname1', 'LIKE', "%{$search}%")
-                             ->orWhere('surname2', 'LIKE', "%{$search}%")
-                             ->orWhere('email', 'LIKE', "%{$search}%");
+                return $query->where(function ($q) use ($search) {
+                    $q->where('name', 'LIKE', "%{$search}%")
+                      ->orWhere('surname1', 'LIKE', "%{$search}%")
+                      ->orWhere('surname2', 'LIKE', "%{$search}%")
+                      ->orWhere('email', 'LIKE', "%{$search}%");
+                });
             })
             ->orderBy('id', 'DESC')
             ->paginate(10);
 
-        return view('users.index', compact('users', 'search'));
+        return response()->json([
+            'search' => $search,
+            'users'  => $users
+        ]);
     }
 
     /**
-     * FORMULARIO DE CREACIÓN
-     * - Cargamos los roles para el select
+     * LISTA DE ROLES DISPONIBLES
      */
-    public function create()
+    public function roles()
     {
-        $roles = Role::all();
-        return view('users.create', compact('roles'));
+        return response()->json([
+            'roles' => Role::all()
+        ]);
     }
 
     /**
-     * GUARDAR USUARIO
-     * - Valida datos
-     * - Crea usuario
+     * CREAR USUARIO
      */
     public function store(Request $request)
     {
         $request->validate([
-            'name' => 'required',
-            'surname1' => 'nullable',
-            'surname2' => 'nullable',
-            'email' => 'required|email|unique:users,email',
-            'phone' => 'nullable',
-            'role_id' => 'nullable|exists:roles,id',
-            'password' => 'required|min:6',
+            'name'      => 'required',
+            'surname1'  => 'nullable',
+            'surname2'  => 'nullable',
+            'email'     => 'required|email|unique:users,email',
+            'phone'     => 'nullable',
+            'role_id'   => 'nullable|exists:roles,id',
+            'password'  => 'required|min:6',
             'is_active' => 'nullable|boolean',
         ]);
 
-        User::create([
-            'name' => $request->name,
-            'surname1' => $request->surname1,
-            'surname2' => $request->surname2,
-            'email' => $request->email,
-            'phone' => $request->phone,
-            'role_id' => $request->role_id,
-            'password' => $request->password, // Laravel lo hashea automáticamente
+        $user = User::create([
+            'name'      => $request->name,
+            'surname1'  => $request->surname1,
+            'surname2'  => $request->surname2,
+            'email'     => $request->email,
+            'phone'     => $request->phone,
+            'role_id'   => $request->role_id,
+            'password'  => Hash::make($request->password),
             'is_active' => $request->is_active ? 1 : 0,
         ]);
 
-        return redirect()->route('users.index')->with('success', 'Usuario creado correctamente');
+        return response()->json([
+            'message' => 'Usuario creado correctamente',
+            'user'    => $user
+        ]);
     }
 
     /**
-     * FORMULARIO DE EDICIÓN
-     * - Cargamos roles para el select
+     * MOSTRAR USUARIO
      */
-    public function edit(User $user)
+    public function show(User $user)
     {
-        $roles = Role::all();
-        return view('users.edit', compact('user', 'roles'));
+        return response()->json([
+            'user' => $user->load('role')
+        ]);
     }
 
     /**
      * ACTUALIZAR USUARIO
-     * - Si se envía contraseña nueva, se actualiza
      */
     public function update(Request $request, User $user)
     {
         $request->validate([
-            'name' => 'required',
-            'surname1' => 'nullable',
-            'surname2' => 'nullable',
-            'email' => "required|email|unique:users,email,{$user->id}",
-            'phone' => 'nullable',
-            'role_id' => 'nullable|exists:roles,id',
+            'name'      => 'required',
+            'surname1'  => 'nullable',
+            'surname2'  => 'nullable',
+            'email'     => "required|email|unique:users,email,{$user->id}",
+            'phone'     => 'nullable',
+            'role_id'   => 'nullable|exists:roles,id',
             'is_active' => 'nullable|boolean',
-            'password' => 'nullable|min:6',
+            'password'  => 'nullable|min:6',
         ]);
 
-        // Actualizamos datos básicos
+        // Actualizar datos básicos
         $user->update([
-            'name' => $request->name,
-            'surname1' => $request->surname1,
-            'surname2' => $request->surname2,
-            'email' => $request->email,
-            'phone' => $request->phone,
-            'role_id' => $request->role_id,
+            'name'      => $request->name,
+            'surname1'  => $request->surname1,
+            'surname2'  => $request->surname2,
+            'email'     => $request->email,
+            'phone'     => $request->phone,
+            'role_id'   => $request->role_id,
             'is_active' => $request->is_active ? 1 : 0,
         ]);
 
-        // Si se envía nueva contraseña → actualizarla
+        // Actualizar contraseña si se envía
         if ($request->password) {
             $user->update([
-                'password' => $request->password
+                'password' => Hash::make($request->password)
             ]);
         }
 
-        return redirect()->route('users.index')->with('success', 'Usuario actualizado correctamente');
+        return response()->json([
+            'message' => 'Usuario actualizado correctamente',
+            'user'    => $user
+        ]);
     }
 
     /**
@@ -126,6 +133,9 @@ class UserController extends Controller
     public function destroy(User $user)
     {
         $user->delete();
-        return redirect()->route('users.index')->with('success', 'Usuario eliminado correctamente');
+
+        return response()->json([
+            'message' => 'Usuario eliminado correctamente'
+        ]);
     }
 }

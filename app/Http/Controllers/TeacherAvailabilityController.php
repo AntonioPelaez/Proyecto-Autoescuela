@@ -14,10 +14,9 @@ class TeacherAvailabilityController extends Controller
 {
     /*
     |--------------------------------------------------------------------------
-    | NUEVO ENDPOINT: /api/teachers/{teacher}/availability
+    | /api/teachers/{teacher}/availability
     |--------------------------------------------------------------------------
-    | Devuelve los mismos slots que /api/availability-hours
-    | pero filtrados por profesor.
+    | Devuelve los slots de un profesor específico para una fecha.
     |--------------------------------------------------------------------------
     */
     public function getAvailability($teacherId, Request $request)
@@ -38,15 +37,15 @@ class TeacherAvailabilityController extends Controller
         if (!$teacher) {
             return response()->json([
                 'teacher_id' => $teacherId,
-                'date' => $date,
-                'slots' => [],
-                'error' => 'Profesor no encontrado'
+                'date'       => $date,
+                'slots'      => [],
+                'error'      => 'Profesor no encontrado'
             ]);
         }
 
         /*
         |--------------------------------------------------------------------------
-        | 2. Obtener el pueblo donde trabaja ese profesor
+        | 2. Pueblo asignado
         |--------------------------------------------------------------------------
         */
         $teacherTown = TeacherTown::where('teacher_profile_id', $teacherId)->first();
@@ -54,9 +53,9 @@ class TeacherAvailabilityController extends Controller
         if (!$teacherTown) {
             return response()->json([
                 'teacher_id' => $teacherId,
-                'date' => $date,
-                'slots' => [],
-                'error' => 'El profesor no está asignado a ningún pueblo'
+                'date'       => $date,
+                'slots'      => [],
+                'error'      => 'El profesor no está asignado a ningún pueblo'
             ]);
         }
 
@@ -64,7 +63,7 @@ class TeacherAvailabilityController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | 3. Obtener disponibilidad semanal
+        | 3. Disponibilidad semanal
         |--------------------------------------------------------------------------
         */
         $dayOfWeek = Carbon::parse($date)->dayOfWeekIso;
@@ -76,19 +75,19 @@ class TeacherAvailabilityController extends Controller
         if (!$availability) {
             return response()->json([
                 'teacher_id' => $teacherId,
-                'date' => $date,
-                'slots' => [],
-                'error' => 'El profesor no tiene disponibilidad ese día'
+                'town_id'    => $townId,
+                'date'       => $date,
+                'slots'      => [],
+                'error'      => 'El profesor no tiene disponibilidad ese día'
             ]);
         }
 
-       $start = Carbon::parse("$date {$availability->starts_time}");
-       $end   = Carbon::parse("$date {$availability->end_time}");
-
+        $start = Carbon::parse("$date {$availability->starts_time}");
+        $end   = Carbon::parse("$date {$availability->end_time}");
 
         /*
         |--------------------------------------------------------------------------
-        | 4. Obtener vehículo asignado ese día
+        | 4. Vehículo asignado
         |--------------------------------------------------------------------------
         */
         $vehicle = TeacherVehicle::getVehicleForDate($teacherId, $date);
@@ -96,15 +95,16 @@ class TeacherAvailabilityController extends Controller
         if (!$vehicle) {
             return response()->json([
                 'teacher_id' => $teacherId,
-                'date' => $date,
-                'slots' => [],
-                'error' => 'El profesor no tiene vehículo asignado ese día'
+                'town_id'    => $townId,
+                'date'       => $date,
+                'slots'      => [],
+                'error'      => 'El profesor no tiene vehículo asignado ese día'
             ]);
         }
 
         /*
         |--------------------------------------------------------------------------
-        | 5. Obtener clases confirmadas (bloquean)
+        | 5. Clases confirmadas (bloquean)
         |--------------------------------------------------------------------------
         */
         $existing = ClassSession::where('teacher_profile_id', $teacherId)
@@ -124,17 +124,16 @@ class TeacherAvailabilityController extends Controller
 
         while ($cursor->lt($end)) {
             $slotStart = $cursor->copy();
-            $slotEnd = $cursor->copy()->addMinutes(45);
+            $slotEnd   = $cursor->copy()->addMinutes(45);
 
             if ($slotEnd->lte($end)) {
                 $hour = $slotStart->format('H:i');
-                $isReserved = in_array($hour, $existing);
 
                 $slots[] = [
-                    'start' => $slotStart->format('Y-m-d H:i:s'),
-                    'end' => $slotEnd->format('Y-m-d H:i:s'),
+                    'start'      => $slotStart->format('Y-m-d H:i:s'),
+                    'end'        => $slotEnd->format('Y-m-d H:i:s'),
                     'vehicle_id' => $vehicle->vehicle_id,
-                    'reserved' => $isReserved,
+                    'reserved'   => in_array($hour, $existing),
                 ];
             }
 
@@ -143,10 +142,10 @@ class TeacherAvailabilityController extends Controller
 
         return response()->json([
             'teacher_id' => $teacherId,
-            'town_id' => $townId,
-            'date' => $date,
-            'slots' => $slots,
-            'source' => 'live'
+            'town_id'    => $townId,
+            'date'       => $date,
+            'slots'      => $slots,
+            'source'     => 'live'
         ]);
     }
 }
