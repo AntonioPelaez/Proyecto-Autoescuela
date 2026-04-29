@@ -66,9 +66,11 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::middleware('auth:sanctum')->prefix('teachers')->group(function () {
     Route::get('/', [TeacherProfileController::class, 'index']);
     Route::get('/{id}', [TeacherProfileController::class, 'show']);
+    Route::put('/{teacher}', [TeacherProfileController::class, 'update']);
+    Route::delete('/{teacher}', [TeacherProfileController::class, 'destroy']);
+    Route::get('/{teacher}', [TeacherProfileController::class, 'show']);
+    Route::post('/{teacher}/toggle', [TeacherProfileController::class, 'toggle']);
     Route::post('/', [TeacherProfileController::class, 'store']);
-    Route::put('/{id}', [TeacherProfileController::class, 'update']);
-    Route::delete('/{id}', [TeacherProfileController::class, 'destroy']);
 
     // Notas del profesor
     Route::get('/{id}/notes', [TeacherProfileController::class, 'notes']);
