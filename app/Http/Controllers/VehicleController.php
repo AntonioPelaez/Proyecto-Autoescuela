@@ -11,13 +11,18 @@ class VehicleController extends Controller
      * LISTADO DE VEHÍCULOS
      */
     public function index()
-    {
-        $vehicles = Vehicle::all();
+{
+    $vehicles = Vehicle::with([
+        'teachers' => function ($q) {
+            $q->wherePivot('is_primary', true)->with('user');
+        }
+    ])->get();
 
-        return response()->json([
-            'vehicles' => $vehicles
-        ]);
-    }
+    return response()->json([
+        'vehicles' => $vehicles
+    ]);
+}
+
 
     /**
      * MOSTRAR UN VEHÍCULO

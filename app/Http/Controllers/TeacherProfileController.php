@@ -7,6 +7,7 @@ use App\Models\Town;
 use App\Models\TeacherProfile;
 use App\Models\Vehicle;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class TeacherProfileController extends Controller
 {
@@ -14,23 +15,24 @@ class TeacherProfileController extends Controller
      * LISTADO DE PROFESORES (solo role_id = 2)
      */
     public function index()
-{
-        $teachers = TeacherProfile::with('user')->get()
-        ->map(function ($t) {
-            return [
-                'id'                    => $t->id,
-                'user_id'               => $t->user_id,
-                'full_name'             => trim($t->user->name . ' ' . $t->user->surname1 . ' ' . $t->user->surname2),
-                'email'                 => $t->user->email,
-                'dni'                   => $t->dni,
-                'license_number'        => $t->license_number,
-                'notes'                 => $t->notes,
-                'is_active_for_booking' => (bool) $t->is_active_for_booking,
-            ];
-        });
+    {
+        $teachers = TeacherProfile::with('user','vehicles')->get()
+            ->map(function ($t) {
+                return [
+                    'id'                    => $t->id,
+                    'user_id'               => $t->user_id,
+                    'full_name'             => trim($t->user->name . ' ' . $t->user->surname1 . ' ' . $t->user->surname2),
+                    'email'                 => $t->user->email,
+                    'dni'                   => $t->dni,
+                    'license_number'        => $t->license_number,
+                    'notes'                 => $t->notes,
+                    'is_active_for_booking' => (bool) $t->is_active_for_booking,
+                    'vehicles'              => $t->vehicles,
+                ];
+            });
 
-    return response()->json($teachers);
-}
+        return response()->json($teachers);
+    }
 
 
     /**
@@ -56,32 +58,46 @@ class TeacherProfileController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'user_id'              => 'required|exists:users,id',
-            'dni'                  => 'nullable|string|max:20',
+            'name'                 => 'required|string|max:255', // nombre completo
+            'email'                => 'required|email|unique:users,email',
+            'active'               => 'nullable|boolean',
+            'dni'                  => 'required|string|max:20',
             'license_number'       => 'required|string|max:50',
-            'notes'                => 'nullable|string',
-            'is_active_for_booking'=> 'nullable|boolean',
-            'towns'                => 'nullable|array',
+            'notes'                => 'required|string',
         ]);
 
+        // 1. Separar nombre completo
+        $parts = preg_split('/\s+/', trim($request->name));
+
+        $firstName  = array_shift($parts);          // primera palabra
+        $surname1   = $parts[0] ?? null;            // segunda palabra
+        $surname2   = $parts[1] ?? null;            // tercera palabra
+
+        // 2. Crear usuario con contraseña temporal
+        $user = User::create([
+            'name'       => $firstName,
+            'surname1'   => $surname1,
+            'surname2'   => $surname2,
+            'email'      => $request->email,
+            'password'   => bcrypt('Teachers90.'), // contraseña temporal
+            'role_id'    => 2, // profesor
+        ]);
+
+        // 3. Crear perfil de profesor
         $teacher = TeacherProfile::create([
-            'user_id'              => $request->user_id,
+            'user_id'              => $user->id,
             'dni'                  => $request->dni,
             'license_number'       => $request->license_number,
             'notes'                => $request->notes,
-            'is_active_for_booking'=> $request->is_active_for_booking ? 1 : 0,
+            'is_active_for_booking' => $request->active ? 1 : 0,
         ]);
-
-        // Asignar pueblos automáticamente
-        if ($request->towns) {
-            $teacher->towns()->sync($request->towns);
-        }
 
         return response()->json([
             'message' => 'Profesor creado correctamente',
-            'teacher' => $teacher->load('towns')
+            'teacher' => $teacher->load('user'),
         ]);
     }
+
 
     /**
      * MOSTRAR PROFESOR
@@ -97,28 +113,54 @@ class TeacherProfileController extends Controller
      * ACTUALIZAR PROFESOR
      */
     public function update(Request $request, TeacherProfile $teacher)
-    {
-        $request->validate([
-            'dni'                  => 'nullable|string|max:20',
-            'license_number'       => 'required|string|max:50',
-            'is_active_for_booking'=> 'nullable|boolean',
-            'towns'                => 'nullable|array',
-        ]);
+{
+    $request->validate([
+        'name'                 => 'required|string|max:255',
+        'email'                => 'required|email|unique:users,email,' . $teacher->user_id,
+        'dni'                  => 'nullable|string|max:20',
+        'license_number'       => 'required|string|max:50',
+        'notes'                => 'nullable|string',
+        'active'               => 'nullable|boolean',
+    ]);
 
-        $teacher->update([
-            'dni'                  => $request->dni,
-            'license_number'       => $request->license_number,
-            'is_active_for_booking'=> $request->is_active_for_booking ? 1 : 0,
-        ]);
+    // 1. Separar nombre completo
+    $parts = preg_split('/\s+/', trim($request->name));
+    $firstName  = array_shift($parts);
+    $surname1   = $parts[0] ?? null;
+    $surname2   = $parts[1] ?? null;
 
-        // Actualizar pueblos
-        $teacher->towns()->sync($request->towns ?? []);
-
+    // 2. Comprobar si el usuario existe
+    if (!$teacher->user) {
         return response()->json([
-            'message' => 'Profesor actualizado correctamente',
-            'teacher' => $teacher->load('towns')
-        ]);
+            'message' => 'El usuario asociado a este profesor no existe.',
+            'type'    => 'Error'
+        ], 422);
     }
+
+    // 3. Actualizar usuario
+    $teacher->user->update([
+        'name'     => $firstName,
+        'surname1' => $surname1,
+        'surname2' => $surname2,
+        'email'    => $request->email,
+    ]);
+
+    // 4. Actualizar perfil de profesor
+    $teacher->update([
+        'dni'                  => $request->dni,
+        'license_number'       => $request->license_number,
+        'notes'                => $request->notes,
+        'is_active_for_booking'=> $request->active ? 1 : 0,
+    ]);
+
+    return response()->json([
+        'message' => 'Profesor actualizado correctamente',
+        'teacher' => $teacher->load('user'),
+    ]);
+}
+
+
+
 
     /**
      * ELIMINAR PROFESOR
@@ -213,4 +255,14 @@ class TeacherProfileController extends Controller
             'vehicles' => $teacher->vehicles
         ]);
     }
+    public function toggle(TeacherProfile $teacher)
+{
+    $teacher->is_active_for_booking = !$teacher->is_active_for_booking;
+    $teacher->save();
+
+    return response()->json([
+        'message' => 'Estado actualizado',
+        'teacher' => $teacher->load('user','vehicles')
+    ]);
+}
 }
