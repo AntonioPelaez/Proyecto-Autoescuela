@@ -14,17 +14,24 @@ class TeacherProfileController extends Controller
      * LISTADO DE PROFESORES (solo role_id = 2)
      */
     public function index()
-    {
-        $teachers = TeacherProfile::with(['user', 'towns'])
-            ->whereHas('user', function ($q) {
-                $q->where('role_id', 2);
-            })
-            ->get();
+{
+        $teachers = TeacherProfile::with('user')->get()
+        ->map(function ($t) {
+            return [
+                'id'                    => $t->id,
+                'user_id'               => $t->user_id,
+                'full_name'             => trim($t->user->name . ' ' . $t->user->surname1 . ' ' . $t->user->surname2),
+                'email'                 => $t->user->email,
+                'dni'                   => $t->dni,
+                'license_number'        => $t->license_number,
+                'notes'                 => $t->notes,
+                'is_active_for_booking' => (bool) $t->is_active_for_booking,
+            ];
+        });
 
-        return response()->json([
-            'teachers' => $teachers
-        ]);
-    }
+    return response()->json($teachers);
+}
+
 
     /**
      * LISTA DE USUARIOS DISPONIBLES PARA SER PROFESORES

@@ -139,9 +139,7 @@ Route::get('/availability-hours', [ClassSessionController::class, 'hours'])
 | Slots disponibles (pueblo → profesores → slots)
 |--------------------------------------------------------------------------
 */
-Route::get('/availability-slots', [ClassSessionController::class, 'availabilitySlots'])
-    ->name('api.availability-slots')->middleware('auth:sanctum');
-
+Route::middleware('auth:sanctum')->get('/availability-slots', [ClassSessionController::class, 'availabilitySlots']);
 /*
 |--------------------------------------------------------------------------
 | Consultar clases del día
