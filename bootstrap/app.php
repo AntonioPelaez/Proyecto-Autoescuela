@@ -23,5 +23,12 @@ return Application::configure(basePath: dirname(__DIR__))
 ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        $exceptions->renderable(function (Throwable $e) {
+            if (request()->is('api/*')) {
+                return response()->json([
+                    'message' => $e->getMessage(),
+                    'type' => class_basename($e)
+                ], method_exists($e, 'getStatusCode') ? $e->getStatusCode() : 500);
+            }
+        });
     })->create();
