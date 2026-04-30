@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Models\StudentProfile;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 
 class StudentProfileController extends Controller
 {
@@ -79,22 +80,63 @@ class StudentProfileController extends Controller
     public function update(Request $request, StudentProfile $student)
     {
         $request->validate([
+            // Datos del alumno
             'dni'          => 'nullable|string|max:20',
             'birth_date'   => 'nullable|date',
             'pickup_notes' => 'nullable|string|max:255',
+
+            // Datos del usuario
+            'name'      => 'nullable|string|max:255',
+            'surname1'  => 'nullable|string|max:255',
+            'surname2'  => 'nullable|string|max:255',
+            'email'     => "nullable|email|unique:users,email,{$student->user_id}",
+            'phone'     => 'nullable|string|max:50',
         ]);
 
+        // 1. Actualizar perfil del alumno
         $student->update([
             'dni'          => $request->dni,
             'birth_date'   => $request->birth_date,
             'pickup_notes' => $request->pickup_notes,
         ]);
+        // 2. Actualizar datos del usuario asociado
+        if ($student->user) {
+            $student->user->update([
+                'name'      => $request->name,
+                'surname1'  => $request->surname1,
+                'surname2'  => $request->surname2,
+                'email'     => $request->email,
+                'phone'     => $request->phone,
+            ]);
+        } else {
+            return response()->json([
+                'message' => 'El alumno no tiene un usuario asociado.',
+            ], 422);
+        }
+
+
+        // 3. Recargar relaciones
+        $student->load('user');
 
         return response()->json([
             'message' => 'Alumno actualizado correctamente',
-            'student' => $student
+            'student' => [
+                'id'            => $student->id,
+                'user_id'       => $student->user_id,
+                'dni'           => $student->dni,
+                'birth_date'    => $student->birth_date,
+                'pickup_notes'  => $student->pickup_notes,
+
+                // Datos del usuario
+                'name'          => $student->user->name,
+                'surname1'      => $student->user->surname1,
+                'surname2'      => $student->user->surname2,
+                'email'         => $student->user->email,
+                'phone'         => $student->user->phone,
+            ]
         ]);
     }
+
 
     /**
      * ELIMINAR ALUMNO
@@ -136,4 +178,40 @@ class StudentProfileController extends Controller
             'student' => $student
         ]);
     }
+    /**
+     * Cambiar contraseña para el estudiante
+     */
+public function changePassword(Request $request, StudentProfile $student)
+{
+    $request->validate([
+        'current_password' => 'required|string',
+        'password'         => 'required|string|min:8|confirmed',
+    ]);
+
+    // Verificar que el alumno tiene usuario asociado
+    if (!$student->user) {
+        return response()->json([
+            'message' => 'El alumno no tiene un usuario asociado.'
+        ], 422);
+    }
+
+    $user = $student->user;
+
+    // Verificar contraseña actual
+    if (!Hash::check($request->current_password, $user->password)) {
+        return response()->json([
+            'message' => 'La contraseña actual no es correcta.'
+        ], 422);
+    }
+
+    // Actualizar contraseña
+    $user->update([
+        'password' => Hash::make($request->password)
+    ]);
+
+    return response()->json([
+        'message' => 'Contraseña actualizada correctamente.'
+    ]);
+}
+
 }
