@@ -67,7 +67,7 @@ class TeacherProfileController extends Controller
             'active'               => 'nullable|boolean',
             'dni'                  => 'required|string|max:20',
             'license_number'       => 'required|string|max:50',
-            'notes'                => 'required|string',
+            'notes'                => 'nullable|string',
         ]);
         // 2. Crear usuario con contraseña temporal
         $user = User::create([
