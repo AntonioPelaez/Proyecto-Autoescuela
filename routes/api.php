@@ -107,12 +107,14 @@ Route::middleware('auth:sanctum')->prefix('students')->group(function () {
     Route::get('/', [StudentProfileController::class, 'index']);
     Route::get('/{id}', [StudentProfileController::class, 'show']);
     Route::post('/', [StudentProfileController::class, 'store']);
-    Route::put('/{id}', [StudentProfileController::class, 'update']);
+    Route::put('/{student}', [StudentProfileController::class, 'update']);
     Route::delete('/{id}', [StudentProfileController::class, 'destroy']);
 
     // Notas del alumno
     Route::get('/{id}/notes', [StudentProfileController::class, 'notes']);
     Route::put('/{id}/notes', [StudentProfileController::class, 'saveNotes']);
+    Route::put('/{student}/password', [StudentProfileController::class, 'changePassword']);
+
 });
 /**
  * Ruta que permite a un alumno autenticado consultar sus clases reservadas, con detalles del profesor y pueblo.
