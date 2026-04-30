@@ -41,6 +41,7 @@ Route::get('/towns/{id}', [TownsController::class, 'show']);
 Route::post('/towns', [TownsController::class, 'store'])->middleware('auth:sanctum');
 Route::put('/towns/{id}', [TownsController::class, 'update'])->middleware('auth:sanctum');
 Route::delete('/towns/{id}', [TownsController::class, 'destroy'])->middleware('auth:sanctum');
+Route::post('/towns/{town}/toggle', [TownsController::class, 'toggleTown'])->middleware('auth:sanctum');
 
 /*
 |--------------------------------------------------------------------------
@@ -94,9 +95,9 @@ Route::get('/teachers/reservas', [TeacherClassController::class, 'reservasProfes
 Route::middleware('auth:sanctum')->prefix('vehicles')->group(function () {
     Route::get('/', [VehicleController::class, 'index']);
     Route::get('/{id}', [VehicleController::class, 'show']);
+    Route::put('/{vehicle}', [VehicleController::class, 'update']);
+    Route::delete('/{vehicle}', [VehicleController::class, 'destroy']);
     Route::post('/', [VehicleController::class, 'store']);
-    Route::put('/{id}', [VehicleController::class, 'update']);
-    Route::delete('/{id}', [VehicleController::class, 'destroy']);
 });
 
 /** 

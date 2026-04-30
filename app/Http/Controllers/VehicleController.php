@@ -11,17 +11,17 @@ class VehicleController extends Controller
      * LISTADO DE VEHÍCULOS
      */
     public function index()
-{
-    $vehicles = Vehicle::with([
-        'teachers' => function ($q) {
-            $q->wherePivot('is_primary', true)->with('user');
-        }
-    ])->get();
+    {
+        $vehicles = Vehicle::with([
+            'teachers' => function ($q) {
+                $q->wherePivot('is_primary', true)->with('user');
+            }
+        ])->get();
 
-    return response()->json([
-        'vehicles' => $vehicles
-    ]);
-}
+        return response()->json([
+            'vehicles' => $vehicles
+        ]);
+    }
 
 
     /**
@@ -44,7 +44,7 @@ class VehicleController extends Controller
             'brand'        => 'required|string|max:50',
             'model'        => 'required|string|max:50',
             'is_active'    => 'nullable|boolean',
-            'notes'        => 'nullable|string',
+            'notes'        => 'required|string',
         ]);
 
         $vehicle = Vehicle::create([
@@ -54,6 +54,11 @@ class VehicleController extends Controller
             'is_active'    => $request->is_active ? 1 : 0,
             'notes'        => $request->notes,
         ]);
+        if ($request->teacher_profile_id) {
+            $vehicle->teachers()->sync([
+                $request->teacher_profile_id => ['is_primary' => 1]
+            ]);
+        }
 
         return response()->json([
             'message' => 'Vehículo creado correctamente',
@@ -71,7 +76,7 @@ class VehicleController extends Controller
             'brand'        => 'required|string|max:50',
             'model'        => 'required|string|max:50',
             'is_active'    => 'nullable|boolean',
-            'notes'        => 'nullable|string',
+            'notes'        => 'required|string',
         ]);
 
         $vehicle->update([
@@ -81,7 +86,11 @@ class VehicleController extends Controller
             'is_active'    => $request->is_active ? 1 : 0,
             'notes'        => $request->notes,
         ]);
-
+        if ($request->teacher_profile_id) {
+            $vehicle->teachers()->sync([
+                $request->teacher_profile_id => ['is_primary' => 1]
+            ]);
+        }
         return response()->json([
             'message' => 'Vehículo actualizado correctamente',
             'vehicle' => $vehicle
