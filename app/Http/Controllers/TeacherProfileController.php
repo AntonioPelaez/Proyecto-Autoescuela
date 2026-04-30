@@ -60,20 +60,27 @@ class TeacherProfileController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'name'                 => 'required|string|max:255',
-            'surname1'             => 'nullable|string',
-            'surname2'             => 'nullable|string',
+            'name'                 => 'required|string|max:120',
+            'surname1'             => 'required_without:surname|string|max:120',
+            'surname2'             => 'nullable|string|max:120',
+            'surname'              => 'required_without:surname1|string|max:120',
             'email'                => 'required|email|unique:users,email',
             'active'               => 'nullable|boolean',
             'dni'                  => 'required|string|max:20',
             'license_number'       => 'required|string|max:50',
             'notes'                => 'nullable|string',
         ]);
+
+        $surname1 = $request->input('surname1');
+        $surname2 = $request->input('surname2');
+        if ($surname1 === null) {
+            $surname1 = trim((string) $request->input('surname', ''));
+        }
         // 2. Crear usuario con contraseña temporal
         $user = User::create([
             'name'       => $request->name,
-            'surname1'   => $request->surname1,
-            'surname2'   => $request->surname2,
+            'surname1'   => $surname1,
+            'surname2'   => $surname2,
             'email'      => $request->email,
             'password'   => bcrypt('Teachers90.'), // contraseña temporal
             'role_id'    => 2, // profesor
@@ -111,9 +118,10 @@ class TeacherProfileController extends Controller
     public function update(Request $request, TeacherProfile $teacher)
     {
         $request->validate([
-            'name'                 => 'required|string|max:255',
-            'surname1'             => 'nullable|string',
-            'surname2'             => 'nullable|string',
+            'name'                 => 'required|string|max:120',
+            'surname1'             => 'required_without:surname|string|max:120',
+            'surname2'             => 'nullable|string|max:120',
+            'surname'              => 'required_without:surname1|string|max:120',
             'email'                => 'required|email|unique:users,email,' . $teacher->user_id,
             'dni'                  => 'nullable|string|max:20',
             'license_number'       => 'required|string|max:50',
@@ -129,11 +137,17 @@ class TeacherProfileController extends Controller
             ], 422);
         }
 
+        $surname1 = $request->input('surname1');
+        $surname2 = $request->input('surname2');
+        if ($surname1 === null) {
+            $surname1 = trim((string) $request->input('surname', ''));
+        }
+
         // 3. Actualizar usuario
         $teacher->user->update([
             'name'       => $request->name,
-            'surname1'   => $request->surname1,
-            'surname2'   => $request->surname2,
+            'surname1'   => $surname1,
+            'surname2'   => $surname2,
             'email'    => $request->email,
         ]);
 
