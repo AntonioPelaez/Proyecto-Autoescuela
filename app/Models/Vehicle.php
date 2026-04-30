@@ -12,6 +12,7 @@ class Vehicle extends Model
         'model',
         'year',
         'is_active',
+        'notes',
     ];
 
     public function teachers()
