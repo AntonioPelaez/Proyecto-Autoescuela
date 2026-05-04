@@ -140,6 +140,8 @@ Route::middleware('auth:sanctum')->prefix('incidents')->group(function(){
     Route::get('/{incident}', [IncidentsController::class, 'show']);
     Route::put('/{incident}', [IncidentsController::class, 'update']);
     Route::delete('/{incident}', [IncidentsController::class, 'destroy']);
+    // 🔥 NUEVO: obtener tipos
+    Route::get('/tipos/list', [IncidentsController::class, 'tipos']);
 });
 /*
 |--------------------------------------------------------------------------

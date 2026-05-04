@@ -140,4 +140,11 @@ class IncidentsController extends Controller
             'message' => 'Incidencia eliminada correctamente'
         ]);
     }
+    public function tipos()
+{
+    $tipos = \App\Models\TypeIncidents::orderBy('nombre')->get(['id', 'nombre']);
+
+    return response()->json($tipos);
+}
+
 }
