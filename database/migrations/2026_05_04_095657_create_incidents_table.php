@@ -24,7 +24,6 @@ return new class extends Migration
             // Prioridad, estado y descripción
             $table->string('prioridad');
             $table->string('estado')->default('abierta');
-            $table->text('descripcion')->nullable();
 
             // Reserva relacionada
             $table->unsignedBigInteger('reserva_id')->nullable();
@@ -40,9 +39,6 @@ return new class extends Migration
                 ->on('users')
                 ->nullOnDelete();
 
-            // NUEVO: Responsable de la incidencia
-            // alumno / profesor / externo
-            $table->string('responsable')->nullable();
 
             // NUEVO: Profesor implicado
             $table->unsignedBigInteger('profesor_asignado')->nullable();
@@ -57,6 +53,11 @@ return new class extends Migration
                 ->references('id')
                 ->on('student_profiles')
                 ->nullOnDelete();
+
+            // NUEVO: Responsable de la incidencia
+            // alumno / profesor / externo
+            $table->string('responsable')->nullable();
+            $table->text('descripcion')->nullable();
 
             $table->timestamps();
         });
