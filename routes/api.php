@@ -15,6 +15,7 @@ use App\Http\Controllers\TeacherProfileController;
 use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\StudentProfileController; 
 use App\Http\Controllers\TeacherClassController;
+use App\Http\Controllers\IncidentsController;
 
 /*
 |--------------------------------------------------------------------------
@@ -130,7 +131,16 @@ Route::get('/teachers/availability-exceptions/{id}', [TeacherAvailabiltyExceptio
 Route::put('/teachers/availability-exceptions/{id}', [TeacherAvailabiltyExceptionsController::class, 'update'])->middleware('auth:sanctum');
 Route::post('/teachers/availability-exceptions', [TeacherAvailabiltyExceptionsController::class, 'store'])->middleware('auth:sanctum');
 Route::delete('/teachers/availability-exceptions/{id}', [TeacherAvailabiltyExceptionsController::class, 'destroy'])->middleware('auth:sanctum');
-
+/**
+ * Gestor de incidencias
+ */
+Route::middleware('auth:sanctum')->prefix('incidents')->group(function(){
+    Route::get('/', [IncidentsController::class, 'index']);
+    Route::post('/', [IncidentsController::class, 'store']);
+    Route::get('/{incident}', [IncidentsController::class, 'show']);
+    Route::put('/{incident}', [IncidentsController::class, 'update']);
+    Route::delete('/{incident}', [IncidentsController::class, 'destroy']);
+});
 /*
 |--------------------------------------------------------------------------
 | Horas disponibles (profesor individual)

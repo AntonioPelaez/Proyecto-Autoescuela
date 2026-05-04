@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
             TeacherWeeklyAvailabilitySeeder::class,
             VehicleSeeder::class,
             TeacherVehicleSeeder::class,
+            TypeIncidentsSeeder::class,
         ]);
     }
 }
