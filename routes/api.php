@@ -155,6 +155,7 @@ Route::get('/availability-hours', [ClassSessionController::class, 'hours'])
 |--------------------------------------------------------------------------
 */
 Route::middleware('auth:sanctum')->get('/availability-slots', [ClassSessionController::class, 'availabilitySlots']);
+Route::middleware('auth:sanctum')->post('/availability-slots', [ClassSessionController::class, 'createAvailabilitySlots']);
 /*
 |--------------------------------------------------------------------------
 | Consultar clases del día
