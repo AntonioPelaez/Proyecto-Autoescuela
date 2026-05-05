@@ -16,14 +16,14 @@ class TeacherVehicleSeeder extends Seeder
         $vehicles = new TeacherVehicle();
         $vehicles->teacher_profile_id = 1;
         $vehicles->vehicle_id = 1;
-        $vehicles->starts_at = now()->subMonths(6);
+        $vehicles->starts_at = null;
         $vehicles->ends_at = null;
         $vehicles->is_primary = true;
         $vehicles->save();
         $vehicles2 = new TeacherVehicle();
         $vehicles2->teacher_profile_id = 2;
         $vehicles2->vehicle_id = 2;
-        $vehicles2->starts_at = now()->subMonths(3);
+        $vehicles2->starts_at = null;
         $vehicles2->ends_at = null;
         $vehicles2->is_primary = true;
         $vehicles2->save();
