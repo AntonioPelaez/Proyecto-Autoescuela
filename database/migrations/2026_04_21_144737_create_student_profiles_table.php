@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('student_profiles', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->foreignId('user_id')->references('id')->on('users')->onDelete('cascade');
+            $table->foreignId('town_id')->references('id')->on('towns')->onDelete('cascade');
             $table->string('dni',20)->nullable();
             $table->date('birth_date')->nullable();
             $table->string('pickup_notes',255)->nullable();
