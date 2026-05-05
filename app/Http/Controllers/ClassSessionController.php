@@ -352,4 +352,41 @@ class ClassSessionController extends Controller
             return response()->json(['message' => 'Clase confirmada']);
         });
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Reasignar profesor a una clase reservada
+    |--------------------------------------------------------------------------
+    */
+    public function reassignTeacher(Request $request)
+    {
+        $request->validate([
+            'class_session_id' => 'required|integer|exists:class_sessions,id',
+            'teacher_id'       => 'required|integer|exists:teacher_profiles,id',
+        ]);
+
+        $classSession = ClassSession::findOrFail($request->class_session_id);
+        
+        // Verificar que el nuevo profesor esté activo para reservas (0 = activo)
+        $teacher = TeacherProfile::findOrFail($request->teacher_id);
+        if ($teacher->is_active_for_booking) {
+            return response()->json(['error' => 'El profesor no está activo para reservas'], 422);
+        }
+
+        // Verificar que el profesor tenga disponibilidad semanal
+        $hasWeeklyAvailability = TeacherWeeklyAvailability::where('teacher_profile_id', $request->teacher_id)
+            ->exists();
+        
+        if (!$hasWeeklyAvailability) {
+            return response()->json(['error' => 'El profesor no tiene disponibilidad registrada'], 422);
+        }
+
+        // Actualizar profesor en la clase
+        $classSession->update(['teacher_profile_id' => $request->teacher_id]);
+        
+        return response()->json([
+            'message' => 'Profesor reasignado correctamente',
+            'class_session' => $classSession->load('teacherProfile.user', 'studentProfile.user')
+        ]);
+    }
 }
