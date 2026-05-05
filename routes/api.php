@@ -189,6 +189,14 @@ Route::post('/class-sessions/cancel', [ClassSessionController::class, 'cancel'])
 Route::post('/class-sessions/confirm', [ClassSessionController::class, 'confirm'])
     ->name('api.class-sessions.confirm')->middleware('auth:sanctum');
 
+/*
+|--------------------------------------------------------------------------
+| Reasignar profesor a una clase
+|--------------------------------------------------------------------------
+*/
+Route::post('/class-sessions/reassign-teacher', [ClassSessionController::class, 'reassignTeacher'])
+    ->name('api.class-sessions.reassign')->middleware('auth:sanctum');
+
 // Endpoint para que el admin pueda consultar todas las clases con filtros
 Route::get('/admin/classes', [AdminClassController::class, 'index'])->middleware('auth:sanctum');
 
