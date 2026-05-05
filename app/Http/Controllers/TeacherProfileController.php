@@ -236,7 +236,7 @@ class TeacherProfileController extends Controller
         ]);
 
         $teacher->vehicles()->attach($request->vehicle_id, [
-            'is_primary' => 0,
+            'is_primary' => 1,
             'starts_at'  => $request->start_at,
             'ends_at'    => $request->end_at,
             'created_at' => now(),
