@@ -21,5 +21,15 @@ class TeacherTownsSeeder extends Seeder
         $teacherTown1->teacher_profile_id = 2;
         $teacherTown1->town_id = 2;
         $teacherTown1->save();
+
+        $teacherTown2 = new \App\Models\TeacherTown();
+        $teacherTown2->teacher_profile_id = 1;
+        $teacherTown2->town_id = 2;
+        $teacherTown2->save();
+
+        $teacherTown3 = new \App\Models\TeacherTown();
+        $teacherTown3->teacher_profile_id = 2;
+        $teacherTown3->town_id = 1;
+        $teacherTown3->save();
     }
 }
