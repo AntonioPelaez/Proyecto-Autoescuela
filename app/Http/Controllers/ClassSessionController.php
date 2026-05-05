@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\ClassSession;
+use App\Models\TeacherProfile;
 use App\Models\TeacherVehicle;
 use App\Models\TeacherTown;
 use App\Models\TeacherWeeklyAvailability;
@@ -30,6 +31,12 @@ class ClassSessionController extends Controller
         $townId    = $request->town_id;
         $teacherId = $request->teacher_id;
         $date      = $request->date;
+
+        // Verificar que el profesor esté activo para reservas (0 = activo)
+        $teacher = TeacherProfile::find($teacherId);
+        if (!$teacher || $teacher->is_active_for_booking) {
+            return response()->json(['hours' => []]);
+        }
 
         $dayOfWeek = Carbon::parse($date)->dayOfWeekIso;
 
@@ -103,8 +110,12 @@ class ClassSessionController extends Controller
         $date      = Carbon::parse($request->date);
         $dayOfWeek = $date->dayOfWeekIso;
 
-        // Profesores asignados al pueblo
-        $teachers = TeacherTown::where('town_id', $townId)->pluck('teacher_profile_id');
+        // Profesores asignados al pueblo (solo activos para reservas)
+        $teachers = TeacherTown::whereHas('teacherProfile', function ($query) {
+                $query->where('is_active_for_booking', 0);
+            })
+            ->where('town_id', $townId)
+            ->pluck('teacher_profile_id');
 
         if ($teachers->isEmpty()) {
             return response()->json([
@@ -117,7 +128,15 @@ class ClassSessionController extends Controller
 
         foreach ($teachers as $teacherId) {
 
-            // Disponibilidad semanal
+            // Verificar que el profesor tenga registros de disponibilidad semanal
+            $hasWeeklyAvailability = TeacherWeeklyAvailability::where('teacher_profile_id', $teacherId)
+                ->exists();
+
+            if (!$hasWeeklyAvailability) {
+                continue;
+            }
+
+            // Disponibilidad semanal para este día
             $availability = TeacherWeeklyAvailability::where('teacher_profile_id', $teacherId)
                 ->where('day_of_week', $dayOfWeek)
                 ->first();
