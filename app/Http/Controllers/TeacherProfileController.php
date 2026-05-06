@@ -8,6 +8,7 @@ use App\Models\TeacherProfile;
 use App\Models\Vehicle;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Hash;
 
 class TeacherProfileController extends Controller
 {
@@ -124,7 +125,8 @@ class TeacherProfileController extends Controller
             'surname'              => 'required_without:surname1|string|max:120',
             'email'                => 'required|email|unique:users,email,' . $teacher->user_id,
             'dni'                  => 'nullable|string|max:20',
-            'license_number'       => 'required|string|max:50',
+            'phone'                => 'nullable|string|max:20',
+            'license_number'       => 'nullable|string|max:50',
             'notes'                => 'nullable|string',
             'active'               => 'nullable|boolean',
         ]);
@@ -149,6 +151,7 @@ class TeacherProfileController extends Controller
             'surname1'   => $surname1,
             'surname2'   => $surname2,
             'email'    => $request->email,
+            'phone'    => $request->phone
         ]);
 
         // 4. Actualizar perfil de profesor
@@ -271,4 +274,41 @@ class TeacherProfileController extends Controller
             'teacher' => $teacher->load('user', 'vehicles')
         ]);
     }
+
+    /**
+ * Cambiar contraseña para el profesor
+ */
+public function changePassword(Request $request, TeacherProfile $teacher)
+{
+    $request->validate([
+        'current_password' => 'required|string',
+        'password'         => 'required|string|min:8|confirmed',
+    ]);
+
+    // Verificar que el profesor tiene usuario asociado
+    if (!$teacher->user) {
+        return response()->json([
+            'message' => 'El profesor no tiene un usuario asociado.'
+        ], 422);
+    }
+
+    $user = $teacher->user;
+
+    // Verificar contraseña actual
+    if (!Hash::check($request->current_password, $user->password)) {
+        return response()->json([
+            'message' => 'La contraseña actual no es correcta.'
+        ], 422);
+    }
+
+    // Actualizar contraseña
+    $user->update([
+        'password' => Hash::make($request->password)
+    ]);
+
+    return response()->json([
+        'message' => 'Contraseña actualizada correctamente.'
+    ]);
+}
+
 }
