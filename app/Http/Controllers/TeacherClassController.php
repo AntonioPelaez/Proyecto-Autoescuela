@@ -20,14 +20,26 @@ class TeacherClassController extends Controller
 
     $teacher = $user->teacherProfile;
 
-    $date    = $request->input('date');
-    $student = $request->input('student');
-    $status  = $request->input('status');
+    $date      = $request->input('date');       // Para agenda
+    $dateFrom  = $request->input('dateFrom');   // Para clases asignadas
+    $dateTo    = $request->input('dateTo');     // Para clases asignadas
+    $student   = $request->input('student');
+    $status    = $request->input('status');
 
     $query = ClassSession::where('teacher_profile_id', $teacher->id)
         ->with(['studentProfile.user', 'town', 'vehicle']);
 
-    if ($date) {
+    // 🔥 PRIORIDAD: si hay rango de fechas, NO usar date
+    if ($dateFrom) {
+        $query->where('session_date', '>=', $dateFrom);
+    }
+
+    if ($dateTo) {
+        $query->where('session_date', '<=', $dateTo);
+    }
+
+    // 🔥 Solo aplicar date si NO hay rango
+    if (!$dateFrom && !$dateTo && $date) {
         $query->where('session_date', $date);
     }
 
@@ -45,19 +57,23 @@ class TeacherClassController extends Controller
 
     $reservas = $query
         ->orderBy('session_date')
-        ->orderBy('slot_starts_at')
+        ->orderBy('start_time')
         ->get()
         ->map(function ($reserva) {
             return [
                 'id'          => $reserva->id,
                 'date'        => $reserva->session_date,
-                'time' => substr($reserva->start_time, 0, 5),
+                'time'        => substr($reserva->start_time, 0, 5),
                 'studentName' => $reserva->studentProfile->user->name . ' ' .
                                  $reserva->studentProfile->user->surname1 . ' ' .
                                  $reserva->studentProfile->user->surname2,
                 'townName'    => $reserva->town->name ?? null,
                 'vehicle'     => $reserva->vehicle->model ?? null,
-                'status' => $reserva->status === 'pending' ? 'confirmed' : $reserva->status,
+
+                // 🔥 Convertir pending → confirmed
+                'status'      => $reserva->status === 'pending'
+                                    ? 'confirmed'
+                                    : $reserva->status,
             ];
         });
 
@@ -65,5 +81,6 @@ class TeacherClassController extends Controller
         'reservas' => $reservas
     ]);
 }
+
 
 }
