@@ -22,7 +22,7 @@ class TeacherSeeder extends Seeder
             'dni' => '23458738A',
             'license_number' => 'LIC364665',
             'notes' => 'Profesor con poca experiencia en la enseñanza de conducción.',
-            'is_active_for_booking' => false,
+            'is_active_for_booking' => true,
         ]);
     }
 }
