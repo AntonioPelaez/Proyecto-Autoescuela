@@ -10,42 +10,60 @@ class TeacherClassController extends Controller
     /**
      * RESERVAS DE UN PROFESOR A UNO O VARIOS ALUMNOS (CLASES RESERVADAS)
      */
-public function reservasProfesor(Request $request)
+    public function reservasProfesor(Request $request)
 {
     $user = $request->user();
 
-    // Validar que es profesor
     if ($user->role->name !== 'teacher') {
         return response()->json(['error' => 'Solo los profesores pueden ver sus reservas'], 403);
     }
 
-    // Obtener el perfil del profesor
     $teacher = $user->teacherProfile;
 
-    // Obtener reservas del profesor
-    $reservas = ClassSession::where('teacher_profile_id', $teacher->id)
-        ->with(['studentProfile.user'])
+    $date    = $request->input('date');
+    $student = $request->input('student');
+    $status  = $request->input('status');
+
+    $query = ClassSession::where('teacher_profile_id', $teacher->id)
+        ->with(['studentProfile.user', 'town', 'vehicle']);
+
+    if ($date) {
+        $query->where('session_date', $date);
+    }
+
+    if ($student) {
+        $query->whereHas('studentProfile.user', function ($q) use ($student) {
+            $q->where('name', 'LIKE', "%$student%")
+              ->orWhere('surname1', 'LIKE', "%$student%")
+              ->orWhere('surname2', 'LIKE', "%$student%");
+        });
+    }
+
+    if ($status) {
+        $query->where('status', $status);
+    }
+
+    $reservas = $query
         ->orderBy('session_date')
         ->orderBy('slot_starts_at')
         ->get()
         ->map(function ($reserva) {
             return [
-                'student_name'      => $reserva->studentProfile->user->name,
-                'student_surname1'  => $reserva->studentProfile->user->surname1,
-                'student_surname2'  => $reserva->studentProfile->user->surname2,
-                'session_date'      => $reserva->session_date,
-                'status'            => $reserva->status,
-                'start_time'        => $reserva->slot_starts_at,
-                'end_time'          => $reserva->slot_ends_at,
+                'id'          => $reserva->id,
+                'date'        => $reserva->session_date,
+                'time' => substr($reserva->start_time, 0, 5),
+                'studentName' => $reserva->studentProfile->user->name . ' ' .
+                                 $reserva->studentProfile->user->surname1 . ' ' .
+                                 $reserva->studentProfile->user->surname2,
+                'townName'    => $reserva->town->name ?? null,
+                'vehicle'     => $reserva->vehicle->model ?? null,
+                'status' => $reserva->status === 'pending' ? 'confirmed' : $reserva->status,
             ];
         });
 
     return response()->json([
-        'teacher_id' => $teacher->id,
-        'reservas'   => $reservas
+        'reservas' => $reservas
     ]);
 }
-
-
 
 }

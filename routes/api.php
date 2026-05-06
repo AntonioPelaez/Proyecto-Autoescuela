@@ -65,6 +65,13 @@ Route::middleware('auth:sanctum')->group(function () {
 /**
  * CRUD DE PROFESORES
  */
+/*
+|--------------------------------------------------------------------------
+| Consultar reservas de un profesor a uno o varios alumnos (clases reservadas)
+|--------------------------------------------------------------------------
+*/
+Route::middleware('auth:sanctum')->get('/teachers/reservas', [TeacherClassController::class, 'reservasProfesor']);
+
 Route::middleware('auth:sanctum')->prefix('teachers')->group(function () {
     Route::get('/', [TeacherProfileController::class, 'index']);
     Route::get('/{id}', [TeacherProfileController::class, 'show']);
@@ -82,14 +89,8 @@ Route::middleware('auth:sanctum')->prefix('teachers')->group(function () {
     Route::get('/{id}/vehicles', [TeacherProfileController::class, 'vehicles']);
     Route::post('/{id}/vehicles/assign', [TeacherProfileController::class, 'assignVehicle']);
     Route::delete('/{id}/vehicles/{vehicle}/remove', [TeacherProfileController::class, 'removeVehicle']);
+    Route::put('/{teacher}/password', [TeacherProfileController::class, 'changePassword']);
 });
-
-/*
-|--------------------------------------------------------------------------
-| Consultar reservas de un profesor a uno o varios alumnos (clases reservadas)
-|--------------------------------------------------------------------------
-*/
-Route::get('/teachers/reservas', [TeacherClassController::class, 'reservasProfesor'])->middleware('auth:sanctum');
 /**
  * CRUD DE VEHÍCULOS (API)
  */
