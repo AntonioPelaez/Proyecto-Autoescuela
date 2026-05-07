@@ -214,6 +214,14 @@ Route::post('/class-sessions/confirm', [ClassSessionController::class, 'confirm'
 Route::post('/class-sessions/reassign-teacher', [ClassSessionController::class, 'reassignTeacher'])
     ->name('api.class-sessions.reassign')->middleware('auth:sanctum');
 
+/*
+|--------------------------------------------------------------------------
+| Marcar clase como completada
+|--------------------------------------------------------------------------
+*/
+Route::post('/class-sessions/complete', [ClassSessionController::class, 'complete'])
+    ->name('api.class-sessions.complete')->middleware('auth:sanctum');
+
 // Endpoint para que el admin pueda consultar todas las clases con filtros
 Route::get('/admin/classes', [AdminClassController::class, 'index'])->middleware('auth:sanctum');
 
