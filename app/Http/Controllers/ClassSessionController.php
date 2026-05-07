@@ -389,4 +389,37 @@ class ClassSessionController extends Controller
             'class_session' => $classSession->load('teacherProfile.user', 'studentProfile.user')
         ]);
     }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Marcar clase como completada
+    |--------------------------------------------------------------------------
+    */
+    public function complete(Request $request)
+    {
+        $request->validate([
+            'id' => 'required|integer|exists:class_sessions,id'
+        ]);
+
+        return DB::transaction(function () use ($request) {
+
+            $session = ClassSession::findOrFail($request->id);
+
+            // Verificar que la clase esté confirmada antes de marcarla como completada
+            if ($session->status !== 'confirmed') {
+                return response()->json([
+                    'error' => 'Solo se pueden marcar como completadas las clases confirmadas'
+                ], 422);
+            }
+
+            $session->update([
+                'status' => 'completed'
+            ]);
+
+            return response()->json([
+                'message' => 'Clase marcada como completada',
+                'session' => $session->load('studentProfile.user', 'teacherProfile.user', 'vehicle', 'town')
+            ]);
+        });
+    }
 }
