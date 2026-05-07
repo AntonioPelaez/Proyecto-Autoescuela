@@ -112,7 +112,7 @@ class ClassSessionController extends Controller
 
         // Profesores asignados al pueblo (solo activos para reservas)
         $teachers = TeacherTown::whereHas('teacherProfile', function ($query) {
-                $query->where('is_active_for_booking', 1);
+                $query->where('is_active_for_booking', 0);
             })
             ->where('town_id', $townId)
             ->pluck('teacher_profile_id');
