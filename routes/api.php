@@ -138,7 +138,7 @@ Route::delete('/teachers/availability-exceptions/{id}', [TeacherAvailabiltyExcep
 | Disponibilidades semanales (CRUD)
 |--------------------------------------------------------------------------
 */
-Route::middleware('auth:sanctum')->prefix('teachers/weekly-availabilities')->group(function () {
+Route::middleware('auth:sanctum')->prefix('teacher-weekly-availabilities')->group(function () {
     Route::get('/', [TeacherAvailabilityController::class, 'index']);
     Route::post('/', [TeacherAvailabilityController::class, 'store']);
     Route::get('/{id}', [TeacherAvailabilityController::class, 'show']);
@@ -146,6 +146,7 @@ Route::middleware('auth:sanctum')->prefix('teachers/weekly-availabilities')->gro
     Route::delete('/{id}', [TeacherAvailabilityController::class, 'destroy']);
     Route::post('/{id}/toggle', [TeacherAvailabilityController::class, 'toggle']);
 });
+
 
 /**
  * Gestor de incidencias
