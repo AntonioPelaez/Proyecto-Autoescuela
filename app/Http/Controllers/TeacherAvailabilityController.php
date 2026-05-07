@@ -8,6 +8,7 @@ use App\Models\TeacherTown;
 use App\Models\TeacherVehicle;
 use App\Models\TeacherWeeklyAvailability;
 use App\Models\ClassSession;
+use App\Models\Town;
 use Carbon\Carbon;
 
 class TeacherAvailabilityController extends Controller
@@ -146,6 +147,236 @@ class TeacherAvailabilityController extends Controller
             'date'       => $date,
             'slots'      => $slots,
             'source'     => 'live'
+        ]);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CRUD de Disponibilidades Semanales
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Listar todas las disponibilidades semanales con filtros opcionales
+     * GET /api/teachers/weekly-availabilities
+     */
+    public function index(Request $request)
+    {
+        $query = TeacherWeeklyAvailability::query();
+
+        // Filtrar por profesor
+        if ($request->has('teacher_profile_id')) {
+            $query->where('teacher_profile_id', $request->teacher_profile_id);
+        }
+
+        // Filtrar por pueblo
+        if ($request->has('town_id')) {
+            $query->where('town_id', $request->town_id);
+        }
+
+        // Filtrar por día de la semana
+        if ($request->has('day_of_week')) {
+            $query->where('day_of_week', $request->day_of_week);
+        }
+
+        // Filtrar por activo/inactivo
+        if ($request->has('is_active')) {
+            $query->where('is_active', $request->boolean('is_active'));
+        }
+
+        $availabilities = $query->with(['teacher' => function ($q) {
+            $q->select('id', 'user_id')->with('user:id,name,email');
+        }, 'town:id,name'])->get();
+
+        return response()->json([
+            'data' => $availabilities,
+            'count' => $availabilities->count()
+        ]);
+    }
+
+    /**
+     * Obtener una disponibilidad específica
+     * GET /api/teachers/weekly-availabilities/{id}
+     */
+    public function show($id)
+    {
+        $availability = TeacherWeeklyAvailability::with([
+            'teacher' => function ($q) {
+                $q->select('id', 'user_id')->with('user:id,name,email');
+            },
+            'town:id,name'
+        ])->find($id);
+
+        if (!$availability) {
+            return response()->json([
+                'error' => 'Disponibilidad no encontrada'
+            ], 404);
+        }
+
+        return response()->json($availability);
+    }
+
+    /**
+     * Crear una nueva disponibilidad semanal
+     * POST /api/teachers/weekly-availabilities
+     *
+     * Request body:
+     * {
+     *   "teacher_profile_id": 1,
+     *   "town_id": 2,
+     *   "day_of_week": 1,         // 0=Sunday, 1=Monday, ..., 6=Saturday (ISO-8601)
+     *   "starts_time": "09:00:00",
+     *   "end_time": "14:00:00",
+     *   "slot_minutes": 60        // duración de cada slot (opcional, default 60)
+     * }
+     */
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'teacher_profile_id' => 'required|exists:teacher_profiles,id',
+            'town_id' => 'required|exists:towns,id',
+            'day_of_week' => 'required|integer|between:0,6',
+            'starts_time' => 'required|date_format:H:i:s',
+            'end_time' => 'required|date_format:H:i:s|after:starts_time',
+            'slot_minutes' => 'sometimes|integer|min:15|max:480',
+        ]);
+
+        // Validar que el profesor existe y está activo
+        $teacher = TeacherProfile::find($validated['teacher_profile_id']);
+        if (!$teacher || !$teacher->is_active_for_booking) {
+            return response()->json([
+                'error' => 'El profesor no existe o no está activo'
+            ], 422);
+        }
+
+        // Validar que el pueblo existe
+        $town = Town::find($validated['town_id']);
+        if (!$town) {
+            return response()->json([
+                'error' => 'El pueblo no existe'
+            ], 422);
+        }
+
+        // Verificar que no existe una disponibilidad para el mismo profesor, día y pueblo
+        $existing = TeacherWeeklyAvailability::where('teacher_profile_id', $validated['teacher_profile_id'])
+            ->where('town_id', $validated['town_id'])
+            ->where('day_of_week', $validated['day_of_week'])
+            ->first();
+
+        if ($existing) {
+            return response()->json([
+                'error' => 'Ya existe una disponibilidad para este profesor, pueblo y día'
+            ], 422);
+        }
+
+        // Crear la disponibilidad
+        $availability = TeacherWeeklyAvailability::create($validated);
+
+        return response()->json([
+            'message' => 'Disponibilidad creada correctamente',
+            'data' => $availability->load([
+                'teacher' => function ($q) {
+                    $q->select('id', 'user_id')->with('user:id,name,email');
+                },
+                'town:id,name'
+            ])
+        ], 201);
+    }
+
+    /**
+     * Actualizar una disponibilidad existente
+     * PUT /api/teachers/weekly-availabilities/{id}
+     */
+    public function update(Request $request, $id)
+    {
+        $availability = TeacherWeeklyAvailability::find($id);
+
+        if (!$availability) {
+            return response()->json([
+                'error' => 'Disponibilidad no encontrada'
+            ], 404);
+        }
+
+        $validated = $request->validate([
+            'town_id' => 'sometimes|exists:towns,id',
+            'day_of_week' => 'sometimes|integer|between:0,6',
+            'starts_time' => 'sometimes|date_format:H:i:s',
+            'end_time' => 'sometimes|date_format:H:i:s',
+            'slot_minutes' => 'sometimes|integer|min:15|max:480',
+            'is_active' => 'sometimes|boolean',
+        ]);
+
+        // Si actualiza hora de inicio o fin, validar que fin sea después del inicio
+        if (isset($validated['starts_time']) || isset($validated['end_time'])) {
+            $startTime = $validated['starts_time'] ?? $availability->starts_time;
+            $endTime = $validated['end_time'] ?? $availability->end_time;
+
+            if (strtotime($endTime) <= strtotime($startTime)) {
+                return response()->json([
+                    'error' => 'La hora de fin debe ser posterior a la de inicio'
+                ], 422);
+            }
+        }
+
+        $availability->update($validated);
+
+        return response()->json([
+            'message' => 'Disponibilidad actualizada correctamente',
+            'data' => $availability->load([
+                'teacher' => function ($q) {
+                    $q->select('id', 'user_id')->with('user:id,name,email');
+                },
+                'town:id,name'
+            ])
+        ]);
+    }
+
+    /**
+     * Eliminar una disponibilidad
+     * DELETE /api/teachers/weekly-availabilities/{id}
+     */
+    public function destroy($id)
+    {
+        $availability = TeacherWeeklyAvailability::find($id);
+
+        if (!$availability) {
+            return response()->json([
+                'error' => 'Disponibilidad no encontrada'
+            ], 404);
+        }
+
+        $availability->delete();
+
+        return response()->json([
+            'message' => 'Disponibilidad eliminada correctamente'
+        ]);
+    }
+
+    /**
+     * Alternar estado activo/inactivo de una disponibilidad
+     * POST /api/teachers/weekly-availabilities/{id}/toggle
+     */
+    public function toggle($id)
+    {
+        $availability = TeacherWeeklyAvailability::find($id);
+
+        if (!$availability) {
+            return response()->json([
+                'error' => 'Disponibilidad no encontrada'
+            ], 404);
+        }
+
+        $availability->update(['is_active' => !$availability->is_active]);
+
+        return response()->json([
+            'message' => 'Estado de disponibilidad actualizado',
+            'is_active' => $availability->is_active,
+            'data' => $availability->load([
+                'teacher' => function ($q) {
+                    $q->select('id', 'user_id')->with('user:id,name,email');
+                },
+                'town:id,name'
+            ])
         ]);
     }
 }

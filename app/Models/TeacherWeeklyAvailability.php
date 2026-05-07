@@ -17,4 +17,20 @@ class TeacherWeeklyAvailability extends Model
         'slot_minutes',
         'is_active',
     ];
+
+    /**
+     * Relación con el perfil del profesor
+     */
+    public function teacher()
+    {
+        return $this->belongsTo(TeacherProfile::class, 'teacher_profile_id');
+    }
+
+    /**
+     * Relación con el pueblo
+     */
+    public function town()
+    {
+        return $this->belongsTo(Town::class, 'town_id');
+    }
 }
