@@ -32,9 +32,9 @@ class ClassSessionController extends Controller
         $teacherId = $request->teacher_id;
         $date      = $request->date;
 
-        // Verificar que el profesor esté activo para reservas (0 = activo)
+        // Verificar que el profesor esté activo para reservas
         $teacher = TeacherProfile::find($teacherId);
-        if (!$teacher || $teacher->is_active_for_booking) {
+        if (!$teacher || !$teacher->is_active_for_booking) {
             return response()->json(['hours' => []]);
         }
 
