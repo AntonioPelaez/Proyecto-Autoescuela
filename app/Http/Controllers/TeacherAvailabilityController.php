@@ -257,15 +257,22 @@ class TeacherAvailabilityController extends Controller
             ], 422);
         }
 
-        // Verificar que no existe una disponibilidad para el mismo profesor, día y pueblo
-        $existing = TeacherWeeklyAvailability::where('teacher_profile_id', $validated['teacher_profile_id'])
+        // Verificar que no hay solapamiento de horarios en el mismo día
+        $startTime = $validated['starts_time'];
+        $endTime = $validated['end_time'];
+
+        $overlap = TeacherWeeklyAvailability::where('teacher_profile_id', $validated['teacher_profile_id'])
             ->where('town_id', $validated['town_id'])
             ->where('day_of_week', $validated['day_of_week'])
+            ->where(function ($q) use ($startTime, $endTime) {
+                // Hay solapamiento si: start_new < end_existing AND end_new > start_existing
+                $q->whereRaw("? < end_time AND ? > starts_time", [$startTime, $endTime]);
+            })
             ->first();
 
-        if ($existing) {
+        if ($overlap) {
             return response()->json([
-                'error' => 'Ya existe una disponibilidad para este profesor, pueblo y día'
+                'error' => 'El horario se solapa con una disponibilidad existente'
             ], 422);
         }
 
