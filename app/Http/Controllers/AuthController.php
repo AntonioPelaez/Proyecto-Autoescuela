@@ -29,6 +29,7 @@ class AuthController extends Controller
         'date_of_birth' => 'nullable|date',
         'dni'           => 'nullable|string|max:20',
         'pickup_notes'  => 'nullable|string|max:255',
+        'town_id'       => 'required|exists:towns,id', // ← NUEVO
     ]);
 
     // Crear usuario SOLO alumno
@@ -39,12 +40,13 @@ class AuthController extends Controller
         'surname1'  => $validated['surname1'],
         'surname2'  => $validated['surname2'],
         'phone'     => $validated['phone'],
-        'role_id'   => 3, // Fijado a alumno
+        'role_id'   => 3,
     ]);
 
     // Crear perfil de alumno
     $student = StudentProfile::create([
         'user_id'      => $user->id,
+        'town_id'   => $validated['town_id'], // ← NUEVO
         'dni'          => $validated['dni'] ?? null,
         'birth_date'   => $validated['date_of_birth'] ?? null,
         'pickup_notes' => $validated['pickup_notes'] ?? null,
@@ -52,10 +54,11 @@ class AuthController extends Controller
 
     return response()->json([
         'message' => 'Alumno registrado correctamente',
-        'user'    => $user,
+        'user'    => $user->load('town'),
         'student_profile' => $student,
     ], 201);
 }
+
 
 
     /**
