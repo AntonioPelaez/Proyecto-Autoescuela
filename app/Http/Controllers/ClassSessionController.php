@@ -21,78 +21,72 @@ class ClassSessionController extends Controller
     |--------------------------------------------------------------------------
     */
     public function hours(Request $request)
-    {
-        $request->validate([
-            'town_id'    => 'required|integer',
-            'teacher_id' => 'required|integer',
-            'date'       => 'required|date',
-        ]);
+{
+    $request->validate([
+        'teacher_id' => 'required|integer',
+        'town_id'    => 'required|integer',
+        'date'       => 'required|date',
+    ]);
 
-        $townId    = $request->town_id;
-        $teacherId = $request->teacher_id;
-        $date      = $request->date;
+    $teacherId = $request->teacher_id;
+    $townId    = $request->town_id;
+    $date      = Carbon::parse($request->date);
+    $dayOfWeek = $date->dayOfWeek;
 
-        // Verificar que el profesor esté activo para reservas
-        $teacher = TeacherProfile::find($teacherId);
-        if (!$teacher || !$teacher->is_active_for_booking) {
-            return response()->json(['hours' => []]);
-        }
+    // 🔥 1) OBTENER TODAS LAS DISPONIBILIDADES DEL DÍA
+    $weekly = TeacherWeeklyAvailability::where('teacher_profile_id', $teacherId)
+        ->where('town_id', $townId)
+        ->where('day_of_week', $dayOfWeek)
+        ->where('is_active', true)
+        ->get();
 
-        $dayOfWeek = Carbon::parse($date)->dayOfWeekIso;
-
-        // Disponibilidad semanal
-        $availabilityCollection = TeacherWeeklyAvailability::where('teacher_profile_id', $teacherId)
-            ->where('town_id', $townId)
-            ->where('day_of_week', $dayOfWeek)
-            ->get();
-
-        if ($availabilityCollection->isEmpty()) {
-            return response()->json(['hours' => []]);
-        }
-
-        $availability = $availabilityCollection->get(0);
-
-        $start = Carbon::parse("$date {$availability->starts_time}");
-        $end   = Carbon::parse("$date {$availability->end_time}");
-
-        // Vehículo asignado
-        $vehicle = TeacherVehicle::getVehicleForDate($teacherId, $date);
-        if (!$vehicle) {
-            return response()->json(['hours' => []]);
-        }
-
-        // Clases confirmadas
-        $existing = ClassSession::where('teacher_profile_id', $teacherId)
-            ->where('session_date', $date)
-            ->where('status', 'confirmed')
-            ->pluck('slot_starts_at')
-            ->map(fn($s) => Carbon::parse($s)->format('H:i'))
-            ->toArray();
-
-        // Generar intervalos
-        $intervals = [];
-        $cursor    = $start->copy();
-
-        while ($cursor->lt($end)) {
-            $slotStart = $cursor->copy();
-            $slotEnd   = $cursor->copy()->addMinutes(45);
-
-            if ($slotEnd->lte($end)) {
-                $hour = $slotStart->format('H:i');
-
-                $intervals[] = [
-                    'start'      => $slotStart->format('Y-m-d H:i:s'),
-                    'end'        => $slotEnd->format('Y-m-d H:i:s'),
-                    'vehicle_id' => $vehicle->vehicle_id,
-                    'reserved'   => in_array($hour, $existing),
-                ];
-            }
-
-            $cursor->addMinutes(45);
-        }
-
-        return response()->json(['hours' => $intervals]);
+    if ($weekly->isEmpty()) {
+        return response()->json(['hours' => []]);
     }
+
+    $hours = [];
+
+    // 🔥 2) GENERAR HORAS PARA CADA BLOQUE
+    foreach ($weekly as $block) {
+        $slotMinutes = $block->slot_minutes ?? 45;
+
+        $start = Carbon::parse($block->starts_time);
+        $end   = Carbon::parse($block->end_time);
+
+        while ($start->lt($end)) {
+            $slotStart = $start->copy();
+            $slotEnd   = $start->copy()->addMinutes($slotMinutes);
+
+            if ($slotEnd->gt($end)) break;
+
+            $hours[] = [
+                'start' => $slotStart->format('Y-m-d H:i:s'),
+                'end'   => $slotEnd->format('Y-m-d H:i:s'),
+                'reserved' => false,
+                'vehicle_id' => null,
+            ];
+
+            $start->addMinutes($slotMinutes);
+        }
+    }
+
+    // 🔥 3) MARCAR HORAS RESERVADAS
+    $reserved = ClassSession::where('teacher_id', $teacherId)
+        ->whereDate('session_date', $date)
+        ->pluck('start')
+        ->toArray();
+
+    foreach ($hours as &$h) {
+        if (in_array($h['start'], $reserved)) {
+            $h['reserved'] = true;
+        }
+    }
+
+    // 🔥 4) DEVOLVER TODAS LAS HORAS DEL DÍA
+    return response()->json(['hours' => $hours]);
+}
+
+
 
     /*
     |--------------------------------------------------------------------------
@@ -100,72 +94,71 @@ class ClassSessionController extends Controller
     |--------------------------------------------------------------------------
     */
     public function availabilitySlots(Request $request)
-    {
-        $request->validate([
-            'town_id' => 'required|integer',
-            'date'    => 'required|date',
+{
+    $request->validate([
+        'town_id' => 'required|integer',
+        'date'    => 'required|date',
+    ]);
+
+    $townId    = $request->town_id;
+    $date      = Carbon::parse($request->date);
+    $dayOfWeek = $date->dayOfWeek; // IMPORTANTE: usar 0–6 igual que en weekly availability
+
+    // Profesores asignados al pueblo (solo activos para reservas)
+    $teachers = TeacherTown::whereHas('teacherProfile', function ($query) {
+            $query->where('is_active_for_booking', 1);
+        })
+        ->where('town_id', $townId)
+        ->pluck('teacher_profile_id');
+
+    if ($teachers->isEmpty()) {
+        return response()->json([
+            'date'  => $date->toDateString(),
+            'slots' => []
         ]);
+    }
 
-        $townId    = $request->town_id;
-        $date      = Carbon::parse($request->date);
-        $dayOfWeek = $date->dayOfWeekIso;
+    $result = [];
 
-        // Profesores asignados al pueblo (solo activos para reservas)
-        $teachers = TeacherTown::whereHas('teacherProfile', function ($query) {
-                $query->where('is_active_for_booking', 1);
-            })
+    foreach ($teachers as $teacherId) {
+
+        // 🔥 Obtener TODAS las disponibilidades del día (NO solo la primera)
+        $availabilities = TeacherWeeklyAvailability::where('teacher_profile_id', $teacherId)
             ->where('town_id', $townId)
-            ->pluck('teacher_profile_id');
+            ->where('day_of_week', $dayOfWeek)
+            ->where('is_active', true)
+            ->get();
 
-        if ($teachers->isEmpty()) {
-            return response()->json([
-                'date'  => $date->toDateString(),
-                'slots' => []
-            ]);
+        if ($availabilities->isEmpty()) {
+            continue;
         }
 
-        $result = [];
+        // Vehículo válido
+        $vehicle = TeacherVehicle::getVehicleForDate($teacherId, $date->toDateString());
+        if (!$vehicle) {
+            continue;
+        }
 
-        foreach ($teachers as $teacherId) {
+        // Clases reservadas
+        $reserved = ClassSession::where('teacher_profile_id', $teacherId)
+            ->where('session_date', $date->toDateString())
+            ->pluck('slot_starts_at')
+            ->map(fn($s) => Carbon::parse($s)->format('H:i'))
+            ->toArray();
 
-            // Verificar que el profesor tenga registros de disponibilidad semanal
-            $hasWeeklyAvailability = TeacherWeeklyAvailability::where('teacher_profile_id', $teacherId)
-                ->exists();
+        $slots = [];
 
-            if (!$hasWeeklyAvailability) {
-                continue;
-            }
+        // 🔥 Generar slots para CADA disponibilidad del día
+        foreach ($availabilities as $availability) {
 
-            // Disponibilidad semanal para este día
-            $availability = TeacherWeeklyAvailability::where('teacher_profile_id', $teacherId)
-                ->where('day_of_week', $dayOfWeek)
-                ->first();
+            $slotMinutes = $availability->slot_minutes ?? 45;
 
-            if (!$availability) {
-                continue;
-            }
-
-            // Vehículo válido
-            $vehicle = TeacherVehicle::getVehicleForDate($teacherId, $date->toDateString());
-            if (!$vehicle) {
-                continue;
-            }
-
-            // Clases reservadas
-            $reserved = ClassSession::where('teacher_profile_id', $teacherId)
-                ->where('session_date', $date->toDateString())
-                ->pluck('slot_starts_at')
-                ->map(fn($s) => Carbon::parse($s)->format('H:i'))
-                ->toArray();
-
-            // Generar slots
-            $slots  = [];
             $cursor = Carbon::parse($date->toDateString() . ' ' . $availability->starts_time);
             $end    = Carbon::parse($date->toDateString() . ' ' . $availability->end_time);
 
             while ($cursor->lt($end)) {
                 $slotStart = $cursor->copy();
-                $slotEnd   = $cursor->copy()->addMinutes(45);
+                $slotEnd   = $cursor->copy()->addMinutes($slotMinutes);
 
                 if ($slotEnd->lte($end)) {
                     $hour = $slotStart->format('H:i');
@@ -178,21 +171,23 @@ class ClassSessionController extends Controller
                     ];
                 }
 
-                $cursor->addMinutes(45);
+                $cursor->addMinutes($slotMinutes);
             }
-
-            $result[] = [
-                'teacher_id' => $teacherId,
-                'vehicle_id' => $vehicle->vehicle_id,
-                'slots'      => $slots,
-            ];
         }
 
-        return response()->json([
-            'date'  => $date->toDateString(),
-            'slots' => $result,
-        ]);
+        $result[] = [
+            'teacher_id' => $teacherId,
+            'vehicle_id' => $vehicle->vehicle_id,
+            'slots'      => $slots,
+        ];
     }
+
+    return response()->json([
+        'date'  => $date->toDateString(),
+        'slots' => $result,
+    ]);
+}
+
 
     /*
     |--------------------------------------------------------------------------
