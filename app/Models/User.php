@@ -46,6 +46,10 @@ class User extends Authenticatable
 {
     return $this->hasOne(StudentProfile::class, 'user_id');
 }
+public function town()
+{
+    return $this->belongsTo(Town::class);
+}
 
 
     public function role()
