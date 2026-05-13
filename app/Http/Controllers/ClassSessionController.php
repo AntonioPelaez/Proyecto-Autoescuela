@@ -41,7 +41,10 @@ class ClassSessionController extends Controller
         ->get();
 
     if ($weekly->isEmpty()) {
-        return response()->json(['hours' => []]);
+        return response()->json([
+            'hours' => [],
+            'total_classes' => 0 // 👈 también lo devolvemos aquí
+        ]);
     }
 
     $hours = [];
@@ -60,9 +63,9 @@ class ClassSessionController extends Controller
             if ($slotEnd->gt($end)) break;
 
             $hours[] = [
-                'start' => $slotStart->format('Y-m-d H:i:s'),
-                'end'   => $slotEnd->format('Y-m-d H:i:s'),
-                'reserved' => false,
+                'start'      => $slotStart->format('Y-m-d H:i:s'),
+                'end'        => $slotEnd->format('Y-m-d H:i:s'),
+                'reserved'   => false,
                 'vehicle_id' => null,
             ];
 
@@ -71,9 +74,10 @@ class ClassSessionController extends Controller
     }
 
     // 🔥 3) MARCAR HORAS RESERVADAS
-    $reserved = ClassSession::where('teacher_id', $teacherId)
+    $reserved = ClassSession::where('teacher_profile_id', $teacherId)
         ->whereDate('session_date', $date)
-        ->pluck('start')
+        ->pluck('slot_starts_at')
+        ->map(fn($s) => Carbon::parse($s)->format('Y-m-d H:i:s'))
         ->toArray();
 
     foreach ($hours as &$h) {
@@ -82,9 +86,18 @@ class ClassSessionController extends Controller
         }
     }
 
-    // 🔥 4) DEVOLVER TODAS LAS HORAS DEL DÍA
-    return response()->json(['hours' => $hours]);
+    // 🔥 4) NUEVO: TOTAL DE CLASES IMPARTIDAS
+    $totalClasses = ClassSession::where('teacher_profile_id', $teacherId)
+        ->whereIn('status', ['confirmed', 'completed'])
+        ->count();
+
+    // 🔥 5) RESPUESTA FINAL
+    return response()->json([
+        'hours'         => $hours,
+        'total_classes' => $totalClasses
+    ]);
 }
+
 
 
 
