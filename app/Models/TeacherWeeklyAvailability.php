@@ -17,6 +17,9 @@ class TeacherWeeklyAvailability extends Model
         'slot_minutes',
         'is_active',
     ];
+protected $attributes = [
+    'slot_minutes' => 60,
+];
 
     /**
      * Relación con el perfil del profesor
