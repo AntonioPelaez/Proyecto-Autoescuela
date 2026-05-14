@@ -368,36 +368,53 @@ class ClassSessionController extends Controller
     |--------------------------------------------------------------------------
     */
     public function reassignTeacher(Request $request)
-    {
-        $request->validate([
-            'class_session_id' => 'required|integer|exists:class_sessions,id',
-            'teacher_id'       => 'required|integer|exists:teacher_profiles,id',
-        ]);
+{
+    $request->validate([
+        'class_session_id' => 'required|integer|exists:class_sessions,id',
+        'teacher_id'       => 'required|integer|exists:teacher_profiles,id',
+        'vehicle_id'       => 'nullable|integer|exists:vehicles,id',
+    ]);
 
-        $classSession = ClassSession::findOrFail($request->class_session_id);
-        
-        // Verificar que el nuevo profesor esté activo para reservas (0 = activo)
-        $teacher = TeacherProfile::findOrFail($request->teacher_id);
-        if ($teacher->is_active_for_booking) {
-            return response()->json(['error' => 'El profesor no está activo para reservas'], 422);
-        }
+    // Obtener la clase
+    $classSession = ClassSession::findOrFail($request->class_session_id);
 
-        // Verificar que el profesor tenga disponibilidad semanal
-        $hasWeeklyAvailability = TeacherWeeklyAvailability::where('teacher_profile_id', $request->teacher_id)
-            ->exists();
-        
-        if (!$hasWeeklyAvailability) {
-            return response()->json(['error' => 'El profesor no tiene disponibilidad registrada'], 422);
-        }
+    // Obtener el profesor
+    $teacher = TeacherProfile::findOrFail($request->teacher_id);
 
-        // Actualizar profesor en la clase
-        $classSession->update(['teacher_profile_id' => $request->teacher_id]);
-        
-        return response()->json([
-            'message' => 'Profesor reasignado correctamente',
-            'class_session' => $classSession->load('teacherProfile.user', 'studentProfile.user')
-        ]);
+    if ($teacher->is_active_for_booking !== 1) {
+    return response()->json(['error' => 'El profesor no está activo para reservas'], 422);
+}
+
+
+    // Verificar disponibilidad semanal
+    $hasWeeklyAvailability = TeacherWeeklyAvailability::where('teacher_profile_id', $teacher->id)->exists();
+    if (!$hasWeeklyAvailability) {
+        return response()->json(['error' => 'El profesor no tiene disponibilidad registrada'], 422);
     }
+
+    // Reasignar profesor
+    $classSession->teacher_profile_id = $teacher->id;
+
+    // Reasignar vehículo
+    if ($request->vehicle_id) {
+        // Si el admin seleccionó un vehículo concreto
+        $classSession->vehicle_id = $request->vehicle_id;
+    } else {
+        // Si no se seleccionó vehículo, asignar el único vehículo activo del profesor
+        $vehicle = $teacher->vehicles()->where('is_active', 1)->first();
+        if ($vehicle) {
+            $classSession->vehicle_id = $vehicle->id;
+        }
+    }
+
+    $classSession->save();
+
+    return response()->json([
+        'message' => 'Clase reasignada correctamente',
+        'class_session' => $classSession->load('teacherProfile.user', 'studentProfile.user', 'vehicle')
+    ]);
+}
+
 
     /*
     |--------------------------------------------------------------------------
