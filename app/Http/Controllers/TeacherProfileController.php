@@ -215,17 +215,27 @@ class TeacherProfileController extends Controller
     /**
      * LISTAR VEHÍCULOS ASIGNADOS Y DISPONIBLES
      */
-    public function vehicles(TeacherProfile $teacher)
-    {
-        $vehicles = Vehicle::all();
-        $assigned = $teacher->vehicles()->pluck('vehicle_id')->toArray();
+    public function vehicles(int $teacherId)
+{
+    $teacher = TeacherProfile::with(['vehicles' => function ($q) {
+        $q->where('is_active', 1);
+    }])->findOrFail($teacherId);
 
-        return response()->json([
-            'teacher_id' => $teacher->id,
-            'vehicles'   => $vehicles,
-            'assigned'   => $assigned
-        ]);
-    }
+    // Como cada profesor tiene un único vehículo asignado
+    $vehicle = $teacher->vehicles->first();
+
+    return response()->json([
+        'teacher_id' => $teacher->id,
+        'vehicle' => $vehicle ? [
+            'id' => $vehicle->id,
+            'plate_number' => $vehicle->plate_number,
+            'brand' => $vehicle->brand,
+            'model' => $vehicle->model,
+            'is_active' => $vehicle->is_active,
+        ] : null
+    ]);
+}
+
 
     /**
      * ASIGNAR VEHÍCULO
