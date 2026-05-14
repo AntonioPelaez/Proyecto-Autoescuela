@@ -70,10 +70,7 @@ class TeacherClassController extends Controller
                 'townName'    => $reserva->town->name ?? null,
                 'vehicle'     => $reserva->vehicle->model ?? null,
 
-                // 🔥 Convertir pending → confirmed
-                'status'      => $reserva->status === 'pending'
-                                    ? 'confirmed'
-                                    : $reserva->status,
+                'status' => $reserva->status,
             ];
         });
 
