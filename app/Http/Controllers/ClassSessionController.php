@@ -51,7 +51,7 @@ class ClassSessionController extends Controller
 
     // 🔥 2) GENERAR HORAS PARA CADA BLOQUE
     foreach ($weekly as $block) {
-        $slotMinutes = 60;
+        $slotMinutes = 45;
 
         $start = Carbon::parse($block->starts_time);
         $end   = Carbon::parse($block->end_time);
@@ -164,7 +164,7 @@ class ClassSessionController extends Controller
         // 🔥 Generar slots para CADA disponibilidad del día
         foreach ($availabilities as $availability) {
 
-            $slotMinutes = 60;
+            $slotMinutes = 45;
 
 
             $cursor = Carbon::parse($date->toDateString() . ' ' . $availability->starts_time);
@@ -302,7 +302,7 @@ class ClassSessionController extends Controller
                 'end_time'           => $end->format('H:i:s'),
                 'slot_starts_at'     => $start,
                 'slot_ends_at'       => $end,
-                'status'             => 'pending',
+                'status'             => 'confirmed',
                 'payment_status'     => 'pending',
                 'booking_reference'  => strtoupper(Str::random(10)),
             ]);
