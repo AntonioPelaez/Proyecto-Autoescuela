@@ -9,6 +9,7 @@ use App\Models\Vehicle;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Hash;
+use App\Models\ClassSession;
 
 class TeacherProfileController extends Controller
 {
@@ -318,6 +319,30 @@ public function changePassword(Request $request, TeacherProfile $teacher)
 
     return response()->json([
         'message' => 'Contraseña actualizada correctamente.'
+    ]);
+}
+/**
+ * Método que devuelve las estadísticas del profesor en función de la clases que ha impartido
+ */
+public function stats($id)
+{
+    $teacher = TeacherProfile::with('user')->findOrFail($id);
+
+    $impartidas = ClassSession::where('teacher_profile_id', $id)
+        ->where('status', 'completed')
+        ->count();
+
+    $canceladas = ClassSession::where('teacher_profile_id', $id)
+        ->where('status', 'cancelled')
+        ->count();
+
+    return response()->json([
+        'id' => $teacher->id,
+        'full_name' => $teacher->user->name . ' ' . $teacher->user->surname1 . ' ' . $teacher->user->surname2,
+        'stats' => [
+            'impartidas' => $impartidas,
+            'canceladas' => $canceladas
+        ]
     ]);
 }
 
