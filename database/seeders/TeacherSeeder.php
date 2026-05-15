@@ -10,7 +10,7 @@ class TeacherSeeder extends Seeder
     public function run(): void
     {
         TeacherProfile::create([
-            'user_id' => 2,
+            'user_id' => 3,
             'dni' => '12345678A',
             'license_number' => 'LIC123456',
             'notes' => 'Profesor con amplia experiencia en la enseñanza de conducción.',
