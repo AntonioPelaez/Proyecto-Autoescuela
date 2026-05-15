@@ -71,6 +71,7 @@ Route::middleware('auth:sanctum')->group(function () {
 |--------------------------------------------------------------------------
 */
 Route::middleware('auth:sanctum')->get('/teachers/reservas', [TeacherClassController::class, 'reservasProfesor']);
+Route::middleware('auth:sanctum')->get('/teachers/{id}/stats', [TeacherProfileController::class, 'stats']);
 
 Route::middleware('auth:sanctum')->prefix('teachers')->group(function () {
     Route::get('/', [TeacherProfileController::class, 'index']);
