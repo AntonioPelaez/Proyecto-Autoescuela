@@ -16,6 +16,7 @@ use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\StudentProfileController; 
 use App\Http\Controllers\TeacherClassController;
 use App\Http\Controllers\IncidentsController;
+use App\Http\Controllers\PaymentController;
 
 /*
 |--------------------------------------------------------------------------
@@ -222,7 +223,13 @@ Route::post('/class-sessions/reassign-teacher', [ClassSessionController::class, 
 */
 Route::post('/class-sessions/complete', [ClassSessionController::class, 'complete'])
     ->name('api.class-sessions.complete')->middleware('auth:sanctum');
-
+// Endpoint para que el estudiante pueda realizar el pago
+Route::middleware('auth:sanctum')->prefix('payments')->group(function(){
+    Route::post('/', [PaymentController::class, 'create']);
+    Route::post('/{id}/confirm', [PaymentController::class, 'confirm']);
+    Route::post('/{id}/fail', [PaymentController::class, 'fail']);
+    Route::get('/{id}', [PaymentController::class, 'show']);
+});
 // Endpoint para que el admin pueda consultar todas las clases con filtros
 Route::get('/admin/classes', [AdminClassController::class, 'index'])->middleware('auth:sanctum');
 
