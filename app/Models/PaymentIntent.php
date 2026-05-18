@@ -18,4 +18,9 @@ class PaymentIntent extends Model
         'payload',
         'paid_at',
     ];
+    public function classSession()
+{
+    return $this->belongsTo(ClassSession::class);
+}
+
 }
