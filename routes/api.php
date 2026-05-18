@@ -224,12 +224,21 @@ Route::post('/class-sessions/reassign-teacher', [ClassSessionController::class, 
 Route::post('/class-sessions/complete', [ClassSessionController::class, 'complete'])
     ->name('api.class-sessions.complete')->middleware('auth:sanctum');
 // Endpoint para que el estudiante pueda realizar el pago
-Route::middleware('auth:sanctum')->prefix('payments')->group(function(){
+Route::middleware('auth:sanctum')->prefix('payments')->group(function () {
+
+    // Pago con tarjeta
     Route::post('/', [PaymentController::class, 'create']);
     Route::post('/{id}/confirm', [PaymentController::class, 'confirm']);
     Route::post('/{id}/fail', [PaymentController::class, 'fail']);
     Route::get('/{id}', [PaymentController::class, 'show']);
+
+    // Pago con monedero
+    Route::post('/wallet', [PaymentController::class, 'payWithWallet']);
+
+    // Recarga de monedero
+    Route::post('/recharge', [PaymentController::class, 'recharge']);
 });
+
 // Endpoint para que el admin pueda consultar todas las clases con filtros
 Route::get('/admin/classes', [AdminClassController::class, 'index'])->middleware('auth:sanctum');
 

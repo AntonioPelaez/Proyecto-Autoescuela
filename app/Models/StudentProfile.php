@@ -31,4 +31,17 @@ class StudentProfile extends Model
     {
         return $this->hasMany(ClassSession::class, 'student_profile_id');
     }
+    public function wallet()
+    {
+        return $this->hasOne(Wallet::class);
+    }
+    protected static function booted()
+{
+    static::created(function ($profile) {
+        $profile->wallet()->create([
+            'balance' => 100
+        ]);
+    });
+}
+
 }
