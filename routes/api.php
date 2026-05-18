@@ -237,6 +237,9 @@ Route::middleware('auth:sanctum')->prefix('payments')->group(function () {
 
     // Recarga de monedero
     Route::post('/recharge', [PaymentController::class, 'recharge']);
+    
+    // Retirar saldo
+    Route::post('/withdraw', [PaymentController::class, 'retirarSaldo']);
 });
 
 // Endpoint para que el admin pueda consultar todas las clases con filtros

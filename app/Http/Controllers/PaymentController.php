@@ -150,48 +150,80 @@ class PaymentController extends Controller
     | Pago con monedero
     |--------------------------------------------------------------------------
     */
-    public function payWithWallet(Request $request)
-    {
-        $request->validate([
-            'class_session_id' => 'required|exists:class_sessions,id',
+   public function payWithWallet(Request $request)
+{
+    $request->validate([
+        'class_session_id' => 'required|exists:class_sessions,id',
+    ]);
+
+    $session = ClassSession::with('studentProfile.wallet')
+        ->findOrFail($request->class_session_id);
+
+    $wallet = $session->studentProfile->wallet;
+
+    if ($wallet->balance < $session->price) {
+        return response()->json([
+            'message' => 'Saldo insuficiente en el monedero',
+            'balance' => $wallet->balance
+        ], 400);
+    }
+
+    return DB::transaction(function () use ($wallet, $session) {
+
+        /*
+        |--------------------------------------------------------------------------
+        | 1. Crear PaymentIntent para pagos con monedero
+        |--------------------------------------------------------------------------
+        */
+        $intent = PaymentIntent::create([
+            'class_session_id'   => $session->id,
+            'provider'           => 'wallet',
+            'provider_reference' => 'WALLET-' . strtoupper(Str::random(10)),
+            'amount'             => $session->price,
+            'currency'           => 'EUR',
+            'status'             => 'paid',
+            'paid_at'            => now(),
         ]);
 
-        $session = ClassSession::with('studentProfile.wallet')
-            ->findOrFail($request->class_session_id);
+        /*
+        |--------------------------------------------------------------------------
+        | 2. Restar saldo del monedero
+        |--------------------------------------------------------------------------
+        */
+        $wallet->update([
+            'balance' => $wallet->balance - $session->price
+        ]);
 
-        $wallet = $session->studentProfile->wallet;
+        /*
+        |--------------------------------------------------------------------------
+        | 3. Registrar movimiento en wallet_transactions
+        |--------------------------------------------------------------------------
+        */
+        $wallet->transactions()->create([
+            'type' => 'payment',
+            'amount' => -$session->price,
+            'description' => 'Pago de clase '.$session->id
+        ]);
 
-        if ($wallet->balance < $session->price) {
-            return response()->json([
-                'message' => 'Saldo insuficiente en el monedero',
-                'balance' => $wallet->balance
-            ], 400);
-        }
+        /*
+        |--------------------------------------------------------------------------
+        | 4. Marcar la clase como pagada
+        |--------------------------------------------------------------------------
+        */
+        $session->update([
+            'payment_status' => 'paid'
+        ]);
 
-        return DB::transaction(function () use ($wallet, $session) {
+        return response()->json([
+            'message' => 'Pago realizado con monedero',
+            'class_session_id' => $session->id,
+            'payment_intent_id' => $intent->id,
+            'amount' => $session->price,
+            'balance' => $wallet->balance
+        ]);
+    });
+}
 
-            $wallet->update([
-                'balance' => $wallet->balance - $session->price
-            ]);
-
-            $wallet->transactions()->create([
-                'type' => 'payment',
-                'amount' => -$session->price,
-                'description' => 'Pago de clase '.$session->id
-            ]);
-
-            $session->update([
-                'payment_status' => 'paid'
-            ]);
-
-            return response()->json([
-                'message' => 'Pago realizado con monedero',
-                'class_session_id' => $session->id,
-                'amount' => $session->price,
-                'balance' => $wallet->balance
-            ]);
-        });
-    }
 
     /*
     |--------------------------------------------------------------------------
@@ -220,6 +252,31 @@ class PaymentController extends Controller
 
             return response()->json([
                 'message' => 'Monedero recargado',
+                'balance' => $wallet->balance
+            ]);
+        });
+    }
+
+    public function retirarSaldo(){
+        $wallet = auth()->user()->studentProfile->wallet;
+
+        return DB::transaction(function () use ($wallet) {
+
+            $amountToWithdraw = $wallet->balance;
+
+            $wallet->update([
+                'balance' => 0
+            ]);
+
+            $wallet->transactions()->create([
+                'type' => 'withdrawal',
+                'amount' => -$amountToWithdraw,
+                'description' => 'Retiro de saldo'
+            ]);
+
+            return response()->json([
+                'message' => 'Saldo retirado',
+                'amount_withdrawn' => $amountToWithdraw,
                 'balance' => $wallet->balance
             ]);
         });
