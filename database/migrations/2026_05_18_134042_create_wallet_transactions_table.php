@@ -17,7 +17,7 @@ return new class extends Migration
         ->constrained('wallets')
         ->onDelete('cascade');
 
-    $table->enum('type', ['recharge', 'payment', 'refund']);
+    $table->enum('type', ['recharge', 'payment', 'refund','withdrawal']);
     $table->decimal('amount', 10, 2);
     $table->string('description')->nullable();
             $table->timestamps();

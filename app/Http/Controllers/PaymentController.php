@@ -256,4 +256,29 @@ class PaymentController extends Controller
             ]);
         });
     }
+
+    public function retirarSaldo(){
+        $wallet = auth()->user()->studentProfile->wallet;
+
+        return DB::transaction(function () use ($wallet) {
+
+            $amountToWithdraw = $wallet->balance;
+
+            $wallet->update([
+                'balance' => 0
+            ]);
+
+            $wallet->transactions()->create([
+                'type' => 'withdrawal',
+                'amount' => -$amountToWithdraw,
+                'description' => 'Retiro de saldo'
+            ]);
+
+            return response()->json([
+                'message' => 'Saldo retirado',
+                'amount_withdrawn' => $amountToWithdraw,
+                'balance' => $wallet->balance
+            ]);
+        });
+    }
 }
