@@ -108,12 +108,40 @@ class AuthController extends Controller
     /**
      * Obtener información del usuario autenticado.
      */
-    public function me(Request $request)
-    {
-        $user = $request->user()->load([
-        'studentProfile',
+  public function me(Request $request)
+{
+    $user = $request->user()->load([
+        'studentProfile.wallet',
         'teacherProfile',
     ]);
-        return response()->json($user);
-    }
+
+    return response()->json([
+        'id' => $user->id,
+        'name' => $user->name,
+        'email' => $user->email,
+        'role' => $user->role->name ?? null,
+
+        // PERFIL DE ESTUDIANTE
+        'student_profile' => $user->studentProfile ? [
+            'id' => $user->studentProfile->id,
+            'dni' => $user->studentProfile->dni,
+            'birth_date' => $user->studentProfile->birth_date,
+            'pickup_notes' => $user->studentProfile->pickup_notes,
+
+            // 🔥 AQUÍ DEVUELVES EL MONEDERO
+            'wallet' => $user->studentProfile->wallet ? [
+                'id' => $user->studentProfile->wallet->id,
+                'balance' => $user->studentProfile->wallet->balance,
+            ] : null,
+
+        ] : null,
+
+        // PERFIL DE PROFESOR
+        'teacher_profile' => $user->teacherProfile ? [
+            'id' => $user->teacherProfile->id,
+            'bio' => $user->teacherProfile->bio,
+        ] : null,
+    ]);
+}
+
 }
