@@ -8,6 +8,7 @@ use App\Models\TeacherTown;
 use App\Models\TeacherVehicle;
 use App\Models\TeacherWeeklyAvailability;
 use App\Models\ClassSession;
+use App\Models\TeacherAvailabilityException;
 use App\Models\Town;
 use Carbon\Carbon;
 
@@ -20,7 +21,7 @@ class TeacherAvailabilityController extends Controller
     | Devuelve los slots de un profesor específico para una fecha.
     |--------------------------------------------------------------------------
     */
-    public function getAvailability($teacherId, Request $request)
+    public function getAvailability(int $teacherId, Request $request)
     {
         $request->validate([
             'date' => 'required|date',
@@ -85,6 +86,34 @@ class TeacherAvailabilityController extends Controller
 
         $start = Carbon::parse("$date {$availability->starts_time}");
         $end   = Carbon::parse("$date {$availability->end_time}");
+
+
+        /**
+         * Verificar si hay excepciones para ese día (vacaciones, enfermedad, etc.)
+         */
+        $exception = TeacherAvailabilityException::where('teacher_profile_id', $teacherId)
+            ->where('exception_date', $date)
+            ->where('type', 'especial')
+            ->first();
+
+        if ($exception) {
+            $now = Carbon::now();
+
+            // Si la excepción ya pasó, no mostrar disponibilidad
+            if ($now->gt(Carbon::parse($exception->end_time))) {
+                return response()->json([
+                    'teacher_id' => $teacherId,
+                    'town_id'    => $townId,
+                    'date'       => $date,
+                    'slots'      => [],
+                    'source'     => 'exception-expired'
+                ]);
+            }
+
+            // Si la excepción está vigente → usar sus horas en vez de la semanal
+            $availability->starts_time = $exception->starts_time;
+            $availability->end_time    = $exception->end_time;
+        }
 
         /*
         |--------------------------------------------------------------------------
@@ -239,44 +268,45 @@ class TeacherAvailabilityController extends Controller
             'starts_time' => 'required|date_format:H:i:s',
             'end_time' => 'required|date_format:H:i:s|after:starts_time',
             'slot_minutes' => 'sometimes|integer|min:15|max:480',
+
+            // Campos para disponibilidad especial
+            'type' => 'sometimes|string|in:especial',
+            'exception_date' => 'required_if:type,especial|date',
+            'reason' => 'nullable|string|max:150'
         ]);
 
-        // Validar que el profesor existe y está activo
+        // Validar profesor activo
         $teacher = TeacherProfile::find($validated['teacher_profile_id']);
         if (!$teacher || !$teacher->is_active_for_booking) {
-            return response()->json([
-                'error' => 'El profesor no existe o no está activo'
-            ], 422);
+            return response()->json(['error' => 'El profesor no existe o no está activo'], 422);
         }
 
-        // Validar que el pueblo existe
+        // Validar pueblo
         $town = Town::find($validated['town_id']);
         if (!$town) {
-            return response()->json([
-                'error' => 'El pueblo no existe'
-            ], 422);
+            return response()->json(['error' => 'El pueblo no existe'], 422);
         }
 
-        // Verificar que no hay solapamiento de horarios en el mismo día
-        $startTime = $validated['starts_time'];
-        $endTime = $validated['end_time'];
+        // Si es ESPECIAL → NO crear disponibilidad semanal
+        if (($validated['type'] ?? null) === 'especial') {
 
-        $overlap = TeacherWeeklyAvailability::where('teacher_profile_id', $validated['teacher_profile_id'])
-            ->where('town_id', $validated['town_id'])
-            ->where('day_of_week', $validated['day_of_week'])
-            ->where(function ($q) use ($startTime, $endTime) {
-                // Hay solapamiento si: start_new < end_existing AND end_new > start_existing
-                $q->whereRaw("? < end_time AND ? > starts_time", [$startTime, $endTime]);
-            })
-            ->first();
+            $exception = TeacherAvailabilityException::create([
+                'teacher_profile_id' => $validated['teacher_profile_id'],
+                'town_id' => $validated['town_id'],
+                'exception_date' => $validated['exception_date'],
+                'starts_time' => $validated['starts_time'],
+                'end_time' => $validated['end_time'],
+                'type' => 'especial',
+                'reason' => $validated['reason'] ?? null,
+            ]);
 
-        if ($overlap) {
             return response()->json([
-                'error' => 'El horario se solapa con una disponibilidad existente'
-            ], 422);
+                'message' => 'Disponibilidad especial creada correctamente',
+                'data' => $exception
+            ], 201);
         }
 
-        // Crear la disponibilidad
+        // Si NO es especial → crear disponibilidad semanal normal
         $availability = TeacherWeeklyAvailability::create($validated);
 
         return response()->json([
@@ -289,6 +319,7 @@ class TeacherAvailabilityController extends Controller
             ])
         ], 201);
     }
+
 
     /**
      * Actualizar una disponibilidad existente
@@ -342,7 +373,7 @@ class TeacherAvailabilityController extends Controller
      * Eliminar una disponibilidad
      * DELETE /api/teachers/weekly-availabilities/{id}
      */
-    public function destroy($id)
+    public function destroy(int $id)
     {
         $availability = TeacherWeeklyAvailability::find($id);
 
@@ -363,7 +394,7 @@ class TeacherAvailabilityController extends Controller
      * Alternar estado activo/inactivo de una disponibilidad
      * POST /api/teachers/weekly-availabilities/{id}/toggle
      */
-    public function toggle($id)
+    public function toggle(int $id)
     {
         $availability = TeacherWeeklyAvailability::find($id);
 

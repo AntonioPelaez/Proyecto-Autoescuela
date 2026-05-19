@@ -35,13 +35,4 @@ class StudentProfile extends Model
     {
         return $this->hasOne(Wallet::class);
     }
-    protected static function booted()
-{
-    static::created(function ($profile) {
-        $profile->wallet()->create([
-            'balance' => 100
-        ]);
-    });
-}
-
 }
