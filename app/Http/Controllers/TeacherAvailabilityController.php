@@ -260,65 +260,82 @@ class TeacherAvailabilityController extends Controller
      * }
      */
     public function store(Request $request)
-    {
+{
+    $type = $request->input('type', 'normal'); // por defecto normal
+
+    if ($type === 'especial') {
+
+        // VALIDACIÓN PARA ESPECIAL
         $validated = $request->validate([
             'teacher_profile_id' => 'required|exists:teacher_profiles,id',
             'town_id' => 'required|exists:towns,id',
-            'day_of_week' => 'required|integer|between:0,6',
+            'exception_date' => 'required|date',
             'starts_time' => 'required|date_format:H:i:s',
             'end_time' => 'required|date_format:H:i:s|after:starts_time',
-            'slot_minutes' => 'sometimes|integer|min:15|max:480',
-
-            // Campos para disponibilidad especial
-            'type' => 'sometimes|string|in:especial',
-            'exception_date' => 'required_if:type,especial|date',
-            'reason' => 'nullable|string|max:150'
+            'reason' => 'nullable|string|max:150',
+            'type' => 'required|in:especial'
         ]);
 
-        // Validar profesor activo
-        $teacher = TeacherProfile::find($validated['teacher_profile_id']);
-        if (!$teacher || !$teacher->is_active_for_booking) {
-            return response()->json(['error' => 'El profesor no existe o no está activo'], 422);
-        }
-
-        // Validar pueblo
-        $town = Town::find($validated['town_id']);
-        if (!$town) {
-            return response()->json(['error' => 'El pueblo no existe'], 422);
-        }
-
-        // Si es ESPECIAL → NO crear disponibilidad semanal
-        if (($validated['type'] ?? null) === 'especial') {
-
-            $exception = TeacherAvailabilityException::create([
-                'teacher_profile_id' => $validated['teacher_profile_id'],
-                'town_id' => $validated['town_id'],
-                'exception_date' => $validated['exception_date'],
-                'starts_time' => $validated['starts_time'],
-                'end_time' => $validated['end_time'],
-                'type' => 'especial',
-                'reason' => $validated['reason'] ?? null,
-            ]);
-
-            return response()->json([
-                'message' => 'Disponibilidad especial creada correctamente',
-                'data' => $exception
-            ], 201);
-        }
-
-        // Si NO es especial → crear disponibilidad semanal normal
-        $availability = TeacherWeeklyAvailability::create($validated);
+        // Crear excepción
+        $exception = TeacherAvailabilityException::create([
+            'teacher_profile_id' => $validated['teacher_profile_id'],
+            'town_id' => $validated['town_id'],
+            'exception_date' => $validated['exception_date'],
+            'starts_time' => $validated['starts_time'],
+            'end_time' => $validated['end_time'],
+            'type' => 'especial',
+            'reason' => $validated['reason'] ?? null,
+        ]);
 
         return response()->json([
-            'message' => 'Disponibilidad creada correctamente',
-            'data' => $availability->load([
-                'teacher' => function ($q) {
-                    $q->select('id', 'user_id')->with('user:id,name,email');
-                },
-                'town:id,name'
-            ])
+            'message' => 'Disponibilidad especial creada correctamente',
+            'data' => $exception
         ], 201);
     }
+
+    // VALIDACIÓN PARA NORMAL
+    $validated = $request->validate([
+        'teacher_profile_id' => 'required|exists:teacher_profiles,id',
+        'town_id' => 'required|exists:towns,id',
+        'day_of_week' => 'required|integer|between:0,6',
+        'starts_time' => 'required|date_format:H:i:s',
+        'end_time' => 'required|date_format:H:i:s|after:starts_time',
+        'slot_minutes' => 'sometimes|integer|min:15|max:480',
+        'type' => 'nullable|in:normal'
+    ]);
+
+    // Validar solapamientos SOLO para normal
+    $overlap = TeacherWeeklyAvailability::where('teacher_profile_id', $validated['teacher_profile_id'])
+        ->where('town_id', $validated['town_id'])
+        ->where('day_of_week', $validated['day_of_week'])
+        ->where(function ($q) use ($validated) {
+            $q->whereRaw("? < end_time AND ? > starts_time", [
+                $validated['starts_time'],
+                $validated['end_time']
+            ]);
+        })
+        ->first();
+
+    if ($overlap) {
+        return response()->json([
+            'error' => 'El horario se solapa con una disponibilidad existente'
+        ], 422);
+    }
+
+    // Crear disponibilidad normal
+    $availability = TeacherWeeklyAvailability::create($validated);
+
+    return response()->json([
+        'message' => 'Disponibilidad creada correctamente',
+        'data' => $availability->load([
+            'teacher' => function ($q) {
+                $q->select('id', 'user_id')->with('user:id,name,email');
+            },
+            'town:id,name'
+        ])
+    ], 201);
+}
+
 
 
     /**
