@@ -62,7 +62,7 @@ class SlotGeneratorService
             $end = Carbon::parse($date . ' ' . $availability->end_time);
 
             // Duración de clase (en minutos)
-            $duration = $availability->class_duration ?? 60;
+            $duration = $availability->slot_minutes;
 
             while ($start->copy()->addMinutes($duration) <= $end) {
 

@@ -273,7 +273,8 @@ class TeacherAvailabilityController extends Controller
             'starts_time' => 'required|date_format:H:i:s',
             'end_time' => 'required|date_format:H:i:s|after:starts_time',
             'reason' => 'nullable|string|max:150',
-            'type' => 'required|in:especial'
+            'type' => 'required|in:especial',
+            'slot_minutes' => 'sometimes|integer|min:15|max:480',
         ]);
 
         // Crear excepción
