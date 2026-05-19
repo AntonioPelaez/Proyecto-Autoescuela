@@ -230,35 +230,41 @@ class PaymentController extends Controller
     | Recargar monedero
     |--------------------------------------------------------------------------
     */
-    public function recharge(Request $request)
-    {
-        $request->validate([
-            'amount' => 'required|numeric|min:1',
+   public function recharge(Request $request)
+{
+    $request->validate([
+        'amount' => 'required|numeric|min:1',
+    ]);
+
+    $student = $request->user()->studentProfile;
+
+    // Crear wallet si no existe
+    $wallet = $student->wallet ?? $student->wallet()->create([
+        'balance' => 0
+    ]);
+
+    return DB::transaction(function () use ($wallet, $request) {
+
+        $wallet->update([
+            'balance' => $wallet->balance + $request->amount
         ]);
 
+        $wallet->transactions()->create([
+            'type' => 'recharge',
+            'amount' => $request->amount,
+            'description' => 'Recarga de monedero'
+        ]);
+
+        return response()->json([
+            'message' => 'Monedero recargado',
+            'balance' => $wallet->balance
+        ]);
+    });
+}
+
+
+    public function retirarSaldo(Request $request){
         $wallet = $request->user()->studentProfile->wallet;
-
-        return DB::transaction(function () use ($wallet, $request) {
-
-            $wallet->update([
-                'balance' => $wallet->balance + $request->amount
-            ]);
-
-            $wallet->transactions()->create([
-                'type' => 'recharge',
-                'amount' => $request->amount,
-                'description' => 'Recarga de monedero'
-            ]);
-
-            return response()->json([
-                'message' => 'Monedero recargado',
-                'balance' => $wallet->balance
-            ]);
-        });
-    }
-
-    public function retirarSaldo(){
-        $wallet = auth()->user()->studentProfile->wallet;
 
         return DB::transaction(function () use ($wallet) {
 
