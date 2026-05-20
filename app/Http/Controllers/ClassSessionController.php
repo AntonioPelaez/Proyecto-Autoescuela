@@ -106,7 +106,7 @@ class ClassSessionController extends Controller
     | Obtener slots disponibles (pueblo → profesores → horas)
     |--------------------------------------------------------------------------
     */
-    public function availabilitySlots(Request $request)
+   public function availabilitySlots(Request $request)
 {
     $request->validate([
         'town_id' => 'required|integer',
@@ -168,14 +168,14 @@ class ClassSessionController extends Controller
             $cursor = Carbon::parse($date->toDateString() . ' ' . $availability->starts_time);
             $end    = Carbon::parse($date->toDateString() . ' ' . $availability->end_time);
 
-            // 🔥 GENERAR SLOTS INCLUYENDO EL ÚLTIMO
+            // 🔥 GENERAR SLOTS INCLUYENDO EL ÚLTIMO COMPLETO
             while ($cursor <= $end) {
 
                 $slotStart = $cursor->copy();
                 $slotEnd   = $cursor->copy()->addMinutes($slotMinutes);
 
-                // 🔥 SI EL SLOT SE PASA DEL FINAL → LO GENERAMOS IGUAL
-                // porque tú quieres que aparezca el último slot completo
+                // 🔥 NO DESCARTAMOS EL SLOT FINAL
+                // aunque $slotEnd > $end
 
                 $key = $slotStart->format('Y-m-d H:i:s');
 
@@ -192,10 +192,16 @@ class ClassSessionController extends Controller
             }
         }
 
+        // 🔥 ORDENAR SLOTS POR HORA
+        $ordered = collect($unique)
+            ->sortBy('start')
+            ->values()
+            ->toArray();
+
         $result[] = [
             'teacher_id' => $teacherId,
             'vehicle_id' => $vehicle->vehicle_id,
-            'slots'      => array_values($unique),
+            'slots'      => $ordered,
         ];
     }
 
