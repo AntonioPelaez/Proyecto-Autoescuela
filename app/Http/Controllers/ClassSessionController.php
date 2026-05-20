@@ -115,9 +115,9 @@ class ClassSessionController extends Controller
 
     $townId    = $request->town_id;
     $date      = Carbon::parse($request->date);
-    $dayOfWeek = $date->dayOfWeek; // IMPORTANTE: usar 0–6 igual que en weekly availability
+    $dayOfWeek = $date->dayOfWeek;
 
-    // Profesores asignados al pueblo (solo activos para reservas)
+    // Profesores activos en ese pueblo
     $teachers = TeacherTown::whereHas('teacherProfile', function ($query) {
             $query->where('is_active_for_booking', 1);
         })
@@ -135,7 +135,7 @@ class ClassSessionController extends Controller
 
     foreach ($teachers as $teacherId) {
 
-        // 🔥 Obtener TODAS las disponibilidades del día (NO solo la primera)
+        // Disponibilidades del día
         $availabilities = TeacherWeeklyAvailability::where('teacher_profile_id', $teacherId)
             ->where('town_id', $townId)
             ->where('day_of_week', $dayOfWeek)
@@ -152,36 +152,39 @@ class ClassSessionController extends Controller
             continue;
         }
 
-        // Clases reservadas
+        // Reservas del profesor
         $reserved = ClassSession::where('teacher_profile_id', $teacherId)
             ->where('session_date', $date->toDateString())
             ->pluck('slot_starts_at')
             ->map(fn($s) => Carbon::parse($s)->format('H:i'))
             ->toArray();
 
-        $slots = [];
+        $unique = [];
 
-        // 🔥 Generar slots para CADA disponibilidad del día
         foreach ($availabilities as $availability) {
 
             $slotMinutes = $availability->slot_minutes;
 
-
             $cursor = Carbon::parse($date->toDateString() . ' ' . $availability->starts_time);
             $end    = Carbon::parse($date->toDateString() . ' ' . $availability->end_time);
 
-            while ($cursor->lt($end)) {
+            // 🔥 GENERAR SLOTS INCLUYENDO EL ÚLTIMO
+            while ($cursor <= $end) {
+
                 $slotStart = $cursor->copy();
                 $slotEnd   = $cursor->copy()->addMinutes($slotMinutes);
 
-                if ($slotEnd->lte($end)) {
-                    $hour = $slotStart->format('H:i');
+                // 🔥 SI EL SLOT SE PASA DEL FINAL → LO GENERAMOS IGUAL
+                // porque tú quieres que aparezca el último slot completo
 
-                    $slots[] = [
+                $key = $slotStart->format('Y-m-d H:i:s');
+
+                if (!isset($unique[$key])) {
+                    $unique[$key] = [
                         'start'      => $slotStart->format('Y-m-d H:i:s'),
                         'end'        => $slotEnd->format('Y-m-d H:i:s'),
                         'vehicle_id' => $vehicle->vehicle_id,
-                        'reserved'   => in_array($hour, $reserved),
+                        'reserved'   => in_array($slotStart->format('H:i'), $reserved),
                     ];
                 }
 
@@ -192,7 +195,7 @@ class ClassSessionController extends Controller
         $result[] = [
             'teacher_id' => $teacherId,
             'vehicle_id' => $vehicle->vehicle_id,
-            'slots'      => $slots,
+            'slots'      => array_values($unique),
         ];
     }
 
@@ -201,6 +204,7 @@ class ClassSessionController extends Controller
         'slots' => $result,
     ]);
 }
+
 
 
     /*

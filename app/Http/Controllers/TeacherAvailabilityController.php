@@ -189,39 +189,45 @@ class TeacherAvailabilityController extends Controller
      * Listar todas las disponibilidades semanales con filtros opcionales
      * GET /api/teachers/weekly-availabilities
      */
-    public function index(Request $request)
-    {
-        $query = TeacherWeeklyAvailability::query();
+  public function index(Request $request)
+{
+    // 1) ELIMINAR AUTOMÁTICAMENTE EXCEPCIONES CADUCADAS
+    TeacherAvailabilityException::where('exception_date', '<', now()->toDateString())->delete();
 
-        // Filtrar por profesor
-        if ($request->has('teacher_profile_id')) {
-            $query->where('teacher_profile_id', $request->teacher_profile_id);
-        }
+    // 2) OBTENER DISPONIBILIDADES NORMALES
+    $weekly = TeacherWeeklyAvailability::query()
+        ->when($request->teacher_profile_id, fn($q) => $q->where('teacher_profile_id', $request->teacher_profile_id))
+        ->when($request->town_id, fn($q) => $q->where('town_id', $request->town_id))
+        ->when($request->day_of_week, fn($q) => $q->where('day_of_week', $request->day_of_week))
+        ->when($request->has('is_active'), fn($q) => $q->where('is_active', $request->boolean('is_active')))
+        ->with(['teacher.user:id,name,email', 'town:id,name'])
+        ->get()
+        ->map(function ($item) {
+            $item->type = 'normal';
+            return $item;
+        });
 
-        // Filtrar por pueblo
-        if ($request->has('town_id')) {
-            $query->where('town_id', $request->town_id);
-        }
+    // 3) OBTENER DISPONIBILIDADES ESPECIALES
+    $special = TeacherAvailabilityException::query()
+        ->when($request->teacher_profile_id, fn($q) => $q->where('teacher_profile_id', $request->teacher_profile_id))
+        ->when($request->town_id, fn($q) => $q->where('town_id', $request->town_id))
+        ->with(['teacher.user:id,name,email', 'town:id,name'])
+        ->get()
+        ->map(function ($item) {
+            $item->day_of_week = null; // no aplica
+            $item->is_active = true;
+            return $item;
+        });
 
-        // Filtrar por día de la semana
-        if ($request->has('day_of_week')) {
-            $query->where('day_of_week', $request->day_of_week);
-        }
+    // 4) UNIR AMBAS
+    $data = $weekly->merge($special);
 
-        // Filtrar por activo/inactivo
-        if ($request->has('is_active')) {
-            $query->where('is_active', $request->boolean('is_active'));
-        }
+    return response()->json([
+        'data' => $data,
+        'count' => $data->count()
+    ]);
+}
 
-        $availabilities = $query->with(['teacher' => function ($q) {
-            $q->select('id', 'user_id')->with('user:id,name,email');
-        }, 'town:id,name'])->get();
-
-        return response()->json([
-            'data' => $availabilities,
-            'count' => $availabilities->count()
-        ]);
-    }
 
     /**
      * Obtener una disponibilidad específica
@@ -343,70 +349,85 @@ class TeacherAvailabilityController extends Controller
      * Actualizar una disponibilidad existente
      * PUT /api/teachers/weekly-availabilities/{id}
      */
-    public function update(Request $request, $id)
-    {
-        $availability = TeacherWeeklyAvailability::find($id);
+   public function update(Request $request, $id)
+{
+    $type = $request->input('type', 'normal');
 
-        if (!$availability) {
-            return response()->json([
-                'error' => 'Disponibilidad no encontrada'
-            ], 404);
+    if ($type === 'especial') {
+
+        $exception = TeacherAvailabilityException::find($id);
+
+        if (!$exception) {
+            return response()->json(['error' => 'Disponibilidad especial no encontrada'], 404);
         }
 
         $validated = $request->validate([
-            'town_id' => 'sometimes|exists:towns,id',
-            'day_of_week' => 'sometimes|integer|between:0,6',
-            'starts_time' => 'sometimes|date_format:H:i:s',
-            'end_time' => 'sometimes|date_format:H:i:s',
-            'slot_minutes' => 'sometimes|integer|min:15|max:480',
-            'is_active' => 'sometimes|boolean',
+            'teacher_profile_id' => 'required|exists:teacher_profiles,id',
+            'town_id' => 'nullable|exists:towns,id',
+            'exception_date' => 'required|date',
+            'starts_time' => 'required|date_format:H:i:s',
+            'end_time' => 'required|date_format:H:i:s|after:starts_time',
+            'reason' => 'nullable|string|max:150',
+            'type' => 'required|in:especial'
         ]);
 
-        // Si actualiza hora de inicio o fin, validar que fin sea después del inicio
-        if (isset($validated['starts_time']) || isset($validated['end_time'])) {
-            $startTime = $validated['starts_time'] ?? $availability->starts_time;
-            $endTime = $validated['end_time'] ?? $availability->end_time;
-
-            if (strtotime($endTime) <= strtotime($startTime)) {
-                return response()->json([
-                    'error' => 'La hora de fin debe ser posterior a la de inicio'
-                ], 422);
-            }
-        }
-
-        $availability->update($validated);
+        $exception->update($validated);
 
         return response()->json([
-            'message' => 'Disponibilidad actualizada correctamente',
-            'data' => $availability->load([
-                'teacher' => function ($q) {
-                    $q->select('id', 'user_id')->with('user:id,name,email');
-                },
-                'town:id,name'
-            ])
+            'message' => 'Disponibilidad especial actualizada correctamente',
+            'data' => $exception
         ]);
     }
+
+    // ---- NORMAL ----
+    $availability = TeacherWeeklyAvailability::find($id);
+
+    if (!$availability) {
+        return response()->json(['error' => 'Disponibilidad normal no encontrada'], 404);
+    }
+
+    $validated = $request->validate([
+        'teacher_profile_id' => 'required|exists:teacher_profiles,id',
+        'town_id' => 'required|exists:towns,id',
+        'day_of_week' => 'required|integer|between:0,6',
+        'starts_time' => 'required|date_format:H:i:s',
+        'end_time' => 'required|date_format:H:i:s|after:starts_time',
+        'slot_minutes' => 'sometimes|integer|min:15|max:480',
+        'type' => 'nullable|in:normal'
+    ]);
+
+    $availability->update($validated);
+
+    return response()->json([
+        'message' => 'Disponibilidad normal actualizada correctamente',
+        'data' => $availability
+    ]);
+}
+
 
     /**
      * Eliminar una disponibilidad
      * DELETE /api/teachers/weekly-availabilities/{id}
      */
     public function destroy(int $id)
-    {
-        $availability = TeacherWeeklyAvailability::find($id);
-
-        if (!$availability) {
-            return response()->json([
-                'error' => 'Disponibilidad no encontrada'
-            ], 404);
-        }
-
-        $availability->delete();
-
-        return response()->json([
-            'message' => 'Disponibilidad eliminada correctamente'
-        ]);
+{
+    // Intentar eliminar normal
+    $normal = TeacherWeeklyAvailability::find($id);
+    if ($normal) {
+        $normal->delete();
+        return response()->json(['message' => 'Disponibilidad normal eliminada']);
     }
+
+    // Intentar eliminar especial
+    $special = TeacherAvailabilityException::find($id);
+    if ($special) {
+        $special->delete();
+        return response()->json(['message' => 'Disponibilidad especial eliminada']);
+    }
+
+    return response()->json(['error' => 'Disponibilidad no encontrada'], 404);
+}
+
 
     /**
      * Alternar estado activo/inactivo de una disponibilidad

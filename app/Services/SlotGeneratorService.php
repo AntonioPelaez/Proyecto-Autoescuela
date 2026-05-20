@@ -21,16 +21,16 @@ class SlotGeneratorService
         // Día de la semana (0 = domingo, 6 = sábado)
         $dayOfWeek = Carbon::parse($date)->dayOfWeek;
 
-        // 1. Obtener disponibilidad semanal del profesor para ese día
+        // 1. Disponibilidad semanal
         $weeklyAvailability = TeacherWeeklyAvailability::where('teacher_profile_id', $teacherId)
             ->where('day_of_week', $dayOfWeek)
             ->get();
 
         if ($weeklyAvailability->isEmpty()) {
-            return []; // No trabaja ese día
+            return [];
         }
 
-        // 2. Obtener vehículo asignado en esa fecha
+        // 2. Vehículo asignado
         $vehicleAssignment = TeacherVehicle::where('teacher_profile_id', $teacherId)
             ->where('starts_at', '<=', $date . ' 23:59:59')
             ->where('ends_at', '>=', $date . ' 00:00:00')
@@ -38,66 +38,73 @@ class SlotGeneratorService
             ->first();
 
         if (!$vehicleAssignment) {
-            return []; // No tiene vehículo asignado ese día
+            return [];
         }
 
         $vehicleId = $vehicleAssignment->vehicle_id;
 
-        // 3. Obtener reservas existentes del profesor ese día
+        // 3. Reservas del día
         $reservations = ClassSession::where('teacher_profile_id', $teacherId)
             ->whereDate('start_at', $date)
             ->get();
 
-        // 4. Obtener excepciones (bloqueos)
+        // 4. Excepciones del día
         $exceptions = TeacherAvailabilityException::where('teacher_profile_id', $teacherId)
             ->whereDate('date', $date)
             ->get();
 
         // 5. Generar slots
-        $slots = [];
+        $unique = []; // ← evita duplicados
 
         foreach ($weeklyAvailability as $availability) {
 
-            $start = Carbon::parse($date . ' ' . $availability->start_time);
-            $end = Carbon::parse($date . ' ' . $availability->end_time);
+    $start = Carbon::parse($date . ' ' . $availability->starts_time);
+    $end   = Carbon::parse($date . ' ' . $availability->end_time);
 
-            // Duración de clase (en minutos)
-            $duration = $availability->slot_minutes;
+    $duration = $availability->slot_minutes;
 
-            while ($start->copy()->addMinutes($duration) <= $end) {
+   while ($start <= $end) {
 
-                $slotStart = $start->copy();
-                $slotEnd = $start->copy()->addMinutes($duration);
+    $slotStart = $start->copy();
+    $slotEnd   = $start->copy()->addMinutes($duration);
 
-                // 5.1 Comprobar excepciones
-                if ($exceptions->contains(function ($ex) use ($slotStart, $slotEnd) {
-                    return $slotStart->between($ex->start_at, $ex->end_at)
-                        || $slotEnd->between($ex->start_at, $ex->end_at);
-                })) {
-                    $start->addMinutes($duration);
-                    continue;
-                }
+    // si el slot se pasa del final → no lo generamos
+    if ($slotEnd->gt($end)) {
+        break;
+    }
 
-                // 5.2 Comprobar reservas
-                if ($reservations->contains(function ($res) use ($slotStart, $slotEnd) {
-                    return $slotStart->between($res->start_at, $res->end_at)
-                        || $slotEnd->between($res->start_at, $res->end_at);
-                })) {
-                    $start->addMinutes($duration);
-                    continue;
-                }
+    // excepciones
+    if ($exceptions->contains(function ($ex) use ($slotStart, $slotEnd) {
+        return $slotStart->between($ex->start_at, $ex->end_at)
+            || $slotEnd->between($ex->start_at, $ex->end_at);
+    })) {
+        $start->addMinutes($duration);
+        continue;
+    }
 
-                // 5.3 Slot válido → añadirlo
-                $slots[] = [
-                    'start' => $slotStart->toDateTimeString(),
-                    'end' => $slotEnd->toDateTimeString(),
-                    'vehicle_id' => $vehicleId,
-                ];
+    // reservas
+    if ($reservations->contains(function ($res) use ($slotStart, $slotEnd) {
+        return $slotStart->between($res->start_at, $res->end_at)
+            || $slotEnd->between($res->start_at, $res->end_at);
+    })) {
+        $start->addMinutes($duration);
+        continue;
+    }
 
-                $start->addMinutes($duration);
-            }
-        }
+    // guardar slot
+    $unique[$slotStart->toDateTimeString()] = [
+        'start'      => $slotStart->toDateTimeString(),
+        'end'        => $slotEnd->toDateTimeString(),
+        'vehicle_id' => $vehicleId,
+    ];
 
-        return $slots;
+    $start->addMinutes($duration);
+}
+
+}
+
+
+        // 🔥 Convertir a array normal sin duplicados
+        return array_values($unique);
     }
 }

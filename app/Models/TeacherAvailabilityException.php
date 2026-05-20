@@ -16,8 +16,14 @@ class TeacherAvailabilityException extends Model
         'reason',
     ];
 
-    public function teacherProfile()
-    {
-        return $this->belongsTo(TeacherProfile::class);
-    }
+    public function teacher()
+{
+    return $this->belongsTo(TeacherProfile::class, 'teacher_profile_id');
+}
+
+public function town()
+{
+    return $this->belongsTo(Town::class, 'town_id');
+}
+
 }
