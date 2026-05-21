@@ -63,4 +63,8 @@ class ClassSession extends Model
     {
         return $this->hasOne(PaymentIntent::class);
     }
+    public function skillEvaluation()
+    {
+        return $this->hasOne(StudentSkillEvaluations::class, 'class_session_id');
+    }
 }
