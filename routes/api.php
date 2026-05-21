@@ -8,7 +8,6 @@ use App\Http\Controllers\TeacherAvailabilityController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\TeacherAvailabiltyExceptionsController;
 use App\Http\Controllers\ClassSessionController;
-use App\Http\Controllers\ClassSessionQueryController;
 use App\Http\Controllers\ClassController;
 use App\Http\Controllers\AdminClassController;
 use App\Http\Controllers\TeacherProfileController;
@@ -17,6 +16,7 @@ use App\Http\Controllers\StudentProfileController;
 use App\Http\Controllers\TeacherClassController;
 use App\Http\Controllers\IncidentsController;
 use App\Http\Controllers\PaymentController;
+use App\Http\Controllers\StudentSkillEvaluationsController;
 
 /*
 |--------------------------------------------------------------------------
@@ -241,7 +241,16 @@ Route::middleware('auth:sanctum')->prefix('payments')->group(function () {
     // Retirar saldo
     Route::post('/withdraw', [PaymentController::class, 'retirarSaldo']);
 });
-
+/**
+ * Endpoints para consultar el progreso y otro apartados relacionados con las evaluaciones de habilidades de los estudiantes
+ */
+Route::middleware('auth:sanctum')->prefix('student-skill-evaluations')->group(function () {
+    Route::get('/', [StudentSkillEvaluationsController::class, 'index']);
+    Route::get('/history/{studentProfileId}', [StudentSkillEvaluationsController::class, 'history']);
+    Route::get('/progress/{studentProfileId}', [StudentSkillEvaluationsController::class, 'progress']);
+    Route::get('/report/{studentId}', [StudentSkillEvaluationsController::class, 'report']);
+    Route::get('/summary/{studentId}', [StudentSkillEvaluationsController::class, 'summary']);
+});
 // Endpoint para que el admin pueda consultar todas las clases con filtros
 Route::get('/admin/classes', [AdminClassController::class, 'index'])->middleware('auth:sanctum');
 

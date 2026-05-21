@@ -35,4 +35,9 @@ class TeacherProfile extends Model
     {
         return $this->hasMany(ClassSession::class, 'teacher_profile_id');
     }
+
+    public function studentProgressReports()
+    {
+        return $this->hasMany(StudentSkillEvaluations::class, 'teacher_profile_id');
+    }
 }

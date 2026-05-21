@@ -12,6 +12,11 @@ use App\Services\SlotGeneratorService;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
+use App\Models\StudentProfile;
+use App\Models\DrivingSkills;
+use App\Models\StudentSkillEvaluations;
+use App\Models\StudentSkillsEvaluation;
+use App\Models\StudentSkillsEvaluations;
 
 class ClassSessionController extends Controller
 {
@@ -438,7 +443,12 @@ class ClassSessionController extends Controller
     public function complete(Request $request)
     {
         $request->validate([
-            'id' => 'required|integer|exists:class_sessions,id'
+            'id' => 'required|integer|exists:class_sessions,id',
+            'skills' => 'required|array',
+            'skills.*.driving_skill_id' => 'required|integer|exists:driving_skills,id',
+            'skills.*.score' => 'required|integer|min:0|max:10',
+            'ready_for_exam' => 'required|boolean',
+            'notes' => 'nullable|string',
         ]);
 
         return DB::transaction(function () use ($request) {
@@ -456,9 +466,28 @@ class ClassSessionController extends Controller
                 'status' => 'completed'
             ]);
 
+            // 2. Crear evaluación general de la clase
+        $evaluation = StudentSkillEvaluations::create([
+            'student_profile_id' => $session->student_profile_id,
+            'teacher_profile_id' => $session->teacher_profile_id,
+            'class_session_id' => $session->id,
+        ]);
+
+        // 3. Insertar cada habilidad evaluada
+        foreach ($request->skills as $skill) {
+            StudentSkillsEvaluations::create([
+                'student_skill_id' => $evaluation->id,
+                'driving_skill_id' => $skill['driving_skill_id'],
+                'score' => $skill['score'],
+                'ready_for_exam' => $request->ready_for_exam ?? false,
+                'notes' => $request->notes ?? null
+            ]);
+        }
+
             return response()->json([
                 'message' => 'Clase marcada como completada',
-                'session' => $session->load('studentProfile.user', 'teacherProfile.user', 'vehicle', 'town')
+                'session' => $session->load('studentProfile.user', 'teacherProfile.user', 'vehicle', 'town'),
+                'evaluation' => $evaluation->load('skillEvaluations.drivingSkill')
             ]);
         });
     }
