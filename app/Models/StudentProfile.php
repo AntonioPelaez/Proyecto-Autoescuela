@@ -37,11 +37,6 @@ class StudentProfile extends Model
         return $this->hasOne(Wallet::class);
     }
 
-    public function studentProgressReports()
-    {
-        return $this->hasMany(StudentProgressReports::class, 'student_profile_id');
-    }
-
     public function skillEvaluations()
     {
         return $this->hasMany(StudentSkillEvaluations::class, 'student_profile_id');
