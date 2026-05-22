@@ -17,7 +17,7 @@ use App\Http\Controllers\TeacherClassController;
 use App\Http\Controllers\IncidentsController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\StudentSkillEvaluationsController;
-
+use App\Http\Controllers\DrivingSkillsController;
 /*
 |--------------------------------------------------------------------------
 | Rutas de Autenticación (/api/auth/...)
@@ -207,6 +207,7 @@ Route::post('/class-sessions/cancel', [ClassSessionController::class, 'cancel'])
 */
 Route::post('/class-sessions/confirm', [ClassSessionController::class, 'confirm'])
     ->name('api.class-sessions.confirm')->middleware('auth:sanctum');
+Route::middleware('auth:sanctum')->get('/class-sessions/{id}', [ClassSessionController::class, 'show']);
 
 /*
 |--------------------------------------------------------------------------
@@ -252,6 +253,7 @@ Route::middleware('auth:sanctum')->prefix('student-skill-evaluations')->group(fu
     Route::get('/report/{studentId}', [StudentSkillEvaluationsController::class, 'report']);
     Route::get('/summary/{studentId}', [StudentSkillEvaluationsController::class, 'summary']);
 });
+Route::get('/driving-skills', [DrivingSkillsController::class, 'index'])->middleware('auth:sanctum');
 // Endpoint para que el admin pueda consultar todas las clases con filtros
 Route::get('/admin/classes', [AdminClassController::class, 'index'])->middleware('auth:sanctum');
 

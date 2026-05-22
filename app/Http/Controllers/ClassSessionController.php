@@ -491,4 +491,16 @@ class ClassSessionController extends Controller
             ]);
         });
     }
+    public function show($id)
+{
+    $session = ClassSession::with([
+        'studentProfile.user',
+        'teacherProfile.user',
+        'town',
+        'vehicle'
+    ])->findOrFail($id);
+
+    return response()->json($session);
+}
+
 }
