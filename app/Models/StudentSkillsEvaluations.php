@@ -10,8 +10,6 @@ class StudentSkillsEvaluations extends Model
         'student_skill_id',
         'driving_skill_id',
         'score',
-        'ready_for_exam',
-        'notes'
     ];
 
     public function evaluation()

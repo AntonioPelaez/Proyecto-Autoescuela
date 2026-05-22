@@ -90,12 +90,13 @@ class StudentProfileController extends Controller
     /**
      * MOSTRAR UN ALUMNO
      */
-    public function show(StudentProfile $student)
-    {
-        return response()->json([
-            'student' => $student->load('user')
-        ]);
-    }
+    public function show($id)
+{
+    $student = StudentProfile::with('user')->findOrFail($id);
+
+    return response()->json($student);
+}
+
 
     /**
      * ACTUALIZAR ALUMNO

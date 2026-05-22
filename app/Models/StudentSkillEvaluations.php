@@ -10,6 +10,8 @@ class StudentSkillEvaluations extends Model
         'student_profile_id',
         'class_session_id',
         'teacher_profile_id',
+        'ready_for_exam',
+        'notes',
     ];
 
     public function studentProfile()

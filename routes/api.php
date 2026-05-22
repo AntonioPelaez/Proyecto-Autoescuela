@@ -246,6 +246,7 @@ Route::middleware('auth:sanctum')->prefix('payments')->group(function () {
  */
 Route::middleware('auth:sanctum')->prefix('student-skill-evaluations')->group(function () {
     Route::get('/', [StudentSkillEvaluationsController::class, 'index']);
+    Route::get('/teacher/students/evaluations', [StudentSkillEvaluationsController::class, 'teacherIndex']);
     Route::get('/history/{studentProfileId}', [StudentSkillEvaluationsController::class, 'history']);
     Route::get('/progress/{studentProfileId}', [StudentSkillEvaluationsController::class, 'progress']);
     Route::get('/report/{studentId}', [StudentSkillEvaluationsController::class, 'report']);

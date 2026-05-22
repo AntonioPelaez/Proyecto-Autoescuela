@@ -6,6 +6,7 @@ use App\Models\StudentSkillEvaluations;
 use App\Models\StudentSkillsEvaluations;
 use App\Models\DrivingSkill;
 use App\Models\DrivingSkills;
+use App\Models\StudentProfile;
 use Illuminate\Http\Request;
 
 class StudentSkillEvaluationsController extends Controller
@@ -19,16 +20,59 @@ class StudentSkillEvaluationsController extends Controller
         return response()->json($evaluations);
     }
     /**
+     * Index solamente para el profesor
+     */
+    public function teacherIndex()
+{
+    $teacherId = auth()->user()->teacherProfile->id;
+
+    $students = StudentProfile::with('user')
+        ->whereHas('user', fn($q) => $q->where('role_id', 3))
+        ->get()
+        ->map(function ($student) use ($teacherId) {
+
+            $evaluatedCount = StudentSkillEvaluations::where('student_profile_id', $student->id)
+                ->where('teacher_profile_id', $teacherId)
+                ->count();
+
+           $ready = StudentSkillEvaluations::where('student_profile_id', $student->id)
+    ->where('teacher_profile_id', $teacherId)
+    ->where('ready_for_exam', true)
+    ->exists();
+
+
+            return [
+                'id' => $student->id,
+                'user' => [
+                    'name' => $student->user->name,
+                    'surname' => trim($student->user->surname1 . ' ' . $student->user->surname2),
+                ],
+                'total_classes' => $evaluatedCount,
+                'ready_for_exam' => $ready,
+            ];
+        });
+
+    return response()->json($students);
+}
+
+    /**
      * Visualizar el histórico de evaluaciones de habilidades de un estudiante específico
      */
-    public function history($studentProfileId)
-    {
-        $evaluations = StudentSkillEvaluations::with('teacherProfile.user', 'classSession', 'skillEvaluations.drivingSkill')
-            ->where('student_profile_id', $studentProfileId)
-            ->orderBy('created_at', 'desc')
-            ->get();
-        return response()->json($evaluations);
-    }
+  public function history($studentProfileId)
+{
+    $evaluations = StudentSkillEvaluations::with([
+        'teacherProfile.user',
+        'classSession.teacher.user',
+        'skillEvaluations.drivingSkill'
+    ])
+    ->where('student_profile_id', $studentProfileId)
+    ->orderBy('created_at', 'desc')
+    ->get();
+
+    return response()->json($evaluations);
+}
+
+
     /**
      * Visualizar el progreso de habilidades de un estudiante a lo largo del tiempo
      */
@@ -74,9 +118,10 @@ class StudentSkillEvaluationsController extends Controller
         $weakAreas = array_filter($result, fn($s) => $s['average'] !== null && $s['average'] < 6);
 
         // Preparado para examen = si alguna evaluación lo marcó
-        $ready = StudentSkillsEvaluations::whereHas('evaluation', function ($q) use ($studentId) {
-            $q->where('student_profile_id', $studentId);
-        })->where('ready_for_exam', true)->exists();
+        $ready = StudentSkillEvaluations::where('student_profile_id', $studentId)
+    ->where('ready_for_exam', true)
+    ->exists();
+
 
         return response()->json([
             'skills_summary' => $result,

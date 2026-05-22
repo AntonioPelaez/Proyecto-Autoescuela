@@ -471,6 +471,8 @@ class ClassSessionController extends Controller
             'student_profile_id' => $session->student_profile_id,
             'teacher_profile_id' => $session->teacher_profile_id,
             'class_session_id' => $session->id,
+            'ready_for_exam' => $request->ready_for_exam ?? false,
+            'notes' => $request->notes ?? null,
         ]);
 
         // 3. Insertar cada habilidad evaluada
@@ -479,8 +481,6 @@ class ClassSessionController extends Controller
                 'student_skill_id' => $evaluation->id,
                 'driving_skill_id' => $skill['driving_skill_id'],
                 'score' => $skill['score'],
-                'ready_for_exam' => $request->ready_for_exam ?? false,
-                'notes' => $request->notes ?? null
             ]);
         }
 
