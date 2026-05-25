@@ -252,6 +252,7 @@ Route::middleware('auth:sanctum')->prefix('student-skill-evaluations')->group(fu
     Route::get('/progress/{studentProfileId}', [StudentSkillEvaluationsController::class, 'progress']);
     Route::get('/report/{studentId}', [StudentSkillEvaluationsController::class, 'report']);
     Route::get('/summary/{studentId}', [StudentSkillEvaluationsController::class, 'summary']);
+    Route::get('/class/{sessionId}/report', [StudentSkillEvaluationsController::class, 'classReport']);
 });
 Route::get('/driving-skills', [DrivingSkillsController::class, 'index'])->middleware('auth:sanctum');
 // Endpoint para que el admin pueda consultar todas las clases con filtros

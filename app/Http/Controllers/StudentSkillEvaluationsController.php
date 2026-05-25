@@ -8,7 +8,6 @@ use App\Models\DrivingSkill;
 use App\Models\DrivingSkills;
 use App\Models\StudentProfile;
 use Illuminate\Http\Request;
-
 class StudentSkillEvaluationsController extends Controller
 {
     /**
@@ -148,4 +147,27 @@ class StudentSkillEvaluationsController extends Controller
             'evaluations' => $evaluations
         ]);
     }
+
+public function classReport($sessionId)
+{
+    $evaluation = StudentSkillEvaluations::with([
+        'classSession.teacher.user',
+        'skillEvaluations.drivingSkill'
+    ])
+    ->where('class_session_id', $sessionId)
+    ->first();
+
+    if (!$evaluation) {
+        return response()->json(['error' => 'Informe no encontrado'], 404);
+    }
+
+    return response()->json([
+        'class_session' => $evaluation->classSession,
+        'teacher' => $evaluation->classSession->teacher->user->name ?? 'Profesor',
+        'skills' => $evaluation->skillEvaluations,   // ✔ skills correctas
+        'report_text' => $evaluation->notes ?? 'Sin informe'  // ✔ informe correcto
+    ]);
+}
+
+
 }
