@@ -241,6 +241,10 @@ Route::middleware('auth:sanctum')->prefix('payments')->group(function () {
     
     // Retirar saldo
     Route::post('/withdraw', [PaymentController::class, 'retirarSaldo']);
+    // Descargar ticket en PDF
+    Route::get('/{id}/ticket', [PaymentController::class, 'downloadTicket']);
+    // Ver el dinero gastado por el alumno
+    Route::get('/student/{studentId}/spent', [PaymentController::class, 'totalSpent']);
 });
 /**
  * Endpoints para consultar el progreso y otro apartados relacionados con las evaluaciones de habilidades de los estudiantes
