@@ -7,6 +7,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use App\Models\PaymentIntent;
 use App\Models\ClassSession;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class PaymentController extends Controller
 {
@@ -287,4 +288,58 @@ class PaymentController extends Controller
             ]);
         });
     }
+    /**
+     * --------------------------------------------------------------------------
+     * Total gastado por el estudiante
+     * --------------------------------------------------------------------------
+     */
+    public function totalSpent(Request $request)
+    {
+        $student = $request->user()->studentProfile;
+
+        $totalSpent = PaymentIntent::whereHas('classSession', function ($query) use ($student) {
+            $query->where('student_profile_id', $student->id)
+                  ->where('payment_status', 'paid');
+        })->sum('amount');
+
+        return response()->json([
+            'total_spent' => $totalSpent
+        ]);
+    }
+    /**
+     * --------------------------------------------------------------------------
+     * Descargar ticket de pago (simulación)
+     * --------------------------------------------------------------------------
+     */
+    public function downloadTicket(int $id)
+{
+    $intent = PaymentIntent::with([
+        'classSession.studentProfile.user',
+        'classSession.teacherProfile.user',
+        'classSession.vehicle',
+        'classSession.town'
+    ])->findOrFail($id);
+
+    $session = $intent->classSession;
+
+    $data = [
+        'autoescuela' => [
+            'name' => 'Autoescuela Aibe',
+            'address' => 'Calle Real 123, Antequera',
+            'phone' => '600 123 456',
+            'email' => 'info@autoescuela-aibe.com'
+        ],
+        'payment' => $intent,
+        'session' => $session,
+        'student' => $session->studentProfile->user,
+        'teacher' => $session->teacherProfile->user,
+        'vehicle' => $session->vehicle,
+        'town' => $session->town
+    ];
+
+    $pdf = Pdf::loadView('factura', $data);
+
+    return $pdf->download('ticket-'.$intent->id.'.pdf');
+}
+
 }

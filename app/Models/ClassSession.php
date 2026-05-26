@@ -67,7 +67,7 @@ class ClassSession extends Model
     // Opción B: solo un intento principal (MVP)
     public function paymentIntent()
     {
-        return $this->hasOne(PaymentIntent::class);
+        return $this->hasOne(PaymentIntent::class, 'class_session_id');
     }
     public function skillEvaluation()
     {

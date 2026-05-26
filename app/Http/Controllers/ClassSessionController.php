@@ -497,10 +497,27 @@ class ClassSessionController extends Controller
         'studentProfile.user',
         'teacherProfile.user',
         'town',
-        'vehicle'
+        'vehicle',
+        'paymentIntent'
     ])->findOrFail($id);
 
-    return response()->json($session);
+    return response()->json([
+        'id' => $session->id,
+        'session_date' => $session->session_date,
+        'start_time' => $session->start_time,
+        'end_time' => $session->end_time,
+        'status' => $session->status,
+        'payment_status' => $session->payment_status,
+
+        // 🔥 AÑADIDO: ESTE CAMPO ES EL QUE NECESITA EL FRONT
+        'payment_intent_id' => $session->paymentIntent->id ?? null,
+
+        'student' => $session->studentProfile->user,
+        'teacher' => $session->teacherProfile->user,
+        'vehicle' => $session->vehicle,
+        'town' => $session->town
+    ]);
 }
+
 
 }
