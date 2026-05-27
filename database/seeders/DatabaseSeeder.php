@@ -23,6 +23,8 @@ class DatabaseSeeder extends Seeder
             TeacherVehicleSeeder::class,
             TypeIncidentsSeeder::class,
             DrivingSkillsSeeder::class,
+            ExamCallStatusSeeder::class,
+            ExamResultStatusSeeder::class,
         ]);
     }
 }
