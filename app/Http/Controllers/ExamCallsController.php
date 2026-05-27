@@ -14,7 +14,7 @@ class ExamCallsController extends Controller
      */
 
     public function index(){
-        $examCalls = ExamCalls::with(['examCallStatus', 'examStudents'])->orderBy('exam_date', 'desc')->orderBy('start_time', 'desc')->get();
+        $examCalls = ExamCalls::with(['examCallStatus', 'examStudents', 'town'])->orderBy('exam_date', 'desc')->orderBy('start_time', 'desc')->get();
         return response()->json($examCalls);
     }
 
@@ -40,12 +40,29 @@ class ExamCallsController extends Controller
      * Devuelve los detalles de una convocatoria de examen específica, incluyendo su estado, los estudiantes asociados, el profesor asignado y el vehículo utilizado.
      */
     public function show($id){
-        $examCall = ExamCalls::with(['examCallStatus',
-            'examStudents.student.user',
-            'examStudents.teacher.user',
-            'examStudents.vehicle',
-            'examStudents.examResultStatus'])->findOrFail($id);
-        return response()->json($examCall);
+        $examCall = ExamCalls::with([
+        'town',
+        'examCallStatus',
+        'examStudents.student.user',
+        'examStudents.teacher.user',
+        'examStudents.vehicle',
+        'examStudents.examResultStatus'
+    ])->findOrFail($id);
+
+    // Obtener profesor y vehículo desde el primer alumno
+    $first = $examCall->examStudents->first();
+
+    return response()->json([
+        'id' => $examCall->id,
+        'exam_date' => $examCall->exam_date,
+        'start_time' => $examCall->start_time,
+        'town_id' => $examCall->town_id,
+        'teacher_id' => $first?->teacher_id,
+        'vehicle_id' => $first?->vehicle_id,
+        'notes' => $examCall->notes,
+        'exam_call_status' => $examCall->examCallStatus,
+        'exam_students' => $examCall->examStudents,
+    ]);
     }
 
     /**
@@ -96,22 +113,53 @@ class ExamCallsController extends Controller
      * Actualiza los detalles de una convocatoria de examen específica, incluyendo su estado, los estudiantes asociados, el profesor asignado y el vehículo utilizado.
      */
     public function update(Request $request, $id){
-        $examCall = ExamCalls::findOrFail($id);
-        $data = $request->validate([
-            'town_id' => 'sometimes|exists:towns,id',
-            'exam_date' => 'sometimes|date',
-            'start_time' => 'sometimes',
-            'exam_call_status_id' => 'sometimes|exists:exam_call_status,id',
-            'teacher_id' => 'sometimes|exists:teacher_profiles,id',
-            'vehicle_id' => 'sometimes|exists:vehicles,id',
-            'notes' => 'nullable|string',
+    $examCall = ExamCalls::findOrFail($id);
+
+    $data = $request->validate([
+        'town_id' => 'sometimes|exists:towns,id',
+        'exam_date' => 'sometimes|date',
+        'start_time' => 'sometimes',
+        'exam_call_status_id' => 'sometimes|exists:exam_call_status,id',
+        'teacher_id' => 'sometimes|exists:teacher_profiles,id',
+        'vehicle_id' => 'sometimes|exists:vehicles,id',
+        'notes' => 'nullable|string',
+        'students' => 'array',
+        'students.*' => 'exists:student_profiles,id',
+    ]);
+
+    // Actualizar convocatoria
+    $examCall->update($data);
+
+    // 🔥 Actualizar profesor y vehículo en exam_students
+    ExamStudents::where('exam_call_id', $examCall->id)
+        ->update([
+            'teacher_id' => $data['teacher_id'] ?? $examCall->teacher_id,
+            'vehicle_id' => $data['vehicle_id'] ?? $examCall->vehicle_id,
         ]);
-        $examCall->update($data);
-        return response()->json([
-            'message' => 'Convocatoria actualizada correctamente',
-            'exam_call' => $examCall->load(['examCallStatus', 'examStudents'])
-        ]);
+
+    // 🔥 Actualizar alumnos seleccionados
+    if (isset($data['students'])) {
+        // Borrar alumnos antiguos
+        ExamStudents::where('exam_call_id', $examCall->id)->delete();
+
+        // Crear nuevos
+        foreach ($data['students'] as $studentId) {
+            ExamStudents::create([
+                'exam_call_id' => $examCall->id,
+                'student_id' => $studentId,
+                'teacher_id' => $data['teacher_id'],
+                'vehicle_id' => $data['vehicle_id'],
+                'exam_result_status_id' => 1,
+            ]);
+        }
     }
+
+    return response()->json([
+        'message' => 'Convocatoria actualizada correctamente',
+        'exam_call' => $examCall->load(['examCallStatus', 'examStudents'])
+    ]);
+}
+
 
     /**
      * Marca una convocatoria de examen como completada y actualiza su estado.
@@ -201,6 +249,7 @@ class ExamCallsController extends Controller
                 'id' => $student->id,
                 'name' => $student->user->name,
                 'surname' => trim($student->user->surname1 . ' ' . $student->user->surname2),
+                'town' => $student->town ? $student->town->name : null,
             ];
         });
 
@@ -269,5 +318,28 @@ public function examStats($teacherId)
         'porcentaje_suspendidos' => $porcentajeSuspendidos,
     ]);
 }
-
+/**
+ * Marca la siguiente convocatoria de examen pendiente como programada, actualizando su estado. 
+ * Si no hay convocatorias pendientes, devuelve un mensaje indicando que no hay convocatorias para completar.
+ */
+public function toggle($id){
+    $examCall = ExamCalls::findOrFail($id);
+    if ($examCall->exam_call_status_id == 3) {
+        $examCall->update(['exam_call_status_id' => 1]);
+        return response()->json([
+            'message' => 'Convocatoria marcada como programada',
+            'exam_call' => $examCall->load(['examCallStatus', 'examStudents'])
+        ]);
+    } elseif ($examCall->exam_call_status_id == 1) { 
+        $examCall->update(['exam_call_status_id' => 3]);
+        return response()->json([
+            'message' => 'Convocatoria marcada como cancelada',
+            'exam_call' => $examCall->load(['examCallStatus', 'examStudents'])
+        ]);
+    } else { 
+        return response()->json([
+            'message' => 'La convocatoria no se puede marcar como programada o cancelada porque ya está completada.'
+        ], 400);
+    }
+} 
 }
