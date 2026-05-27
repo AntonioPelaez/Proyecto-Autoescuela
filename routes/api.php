@@ -279,6 +279,7 @@ Route::middleware('auth:sanctum')->prefix('exam-calls')->group(function () {
     Route::put('/{examCallId}/students/{studentId}/result', [ExamCallsController::class, 'updateExamStudentResult']);
     Route::get('/student/{studentId}/history', [ExamCallsController::class, 'examHistoryByStudent']);
     Route::get('/teacher/{teacherId}/stats', [ExamCallsController::class, 'examStats']);
+    Route::post('/{id}/toggle', [ExamCallsController::class, 'toggle']);
 }); 
 
 /**
