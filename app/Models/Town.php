@@ -27,4 +27,8 @@ class Town extends Model
     public function sessionClass(){
         return $this->hasMany(ClassSession::class);
     }
+    public function examCalls()
+    {
+        return $this->hasMany(ExamCalls::class, 'town_id');
+    }
 }

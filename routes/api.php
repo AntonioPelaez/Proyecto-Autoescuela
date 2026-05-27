@@ -18,6 +18,9 @@ use App\Http\Controllers\IncidentsController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\StudentSkillEvaluationsController;
 use App\Http\Controllers\DrivingSkillsController;
+use App\Http\Controllers\ExamCallsController;
+use App\Http\Controllers\ExamResultStatusController;
+use App\Http\Controllers\ExamCallStatusController;
 /*
 |--------------------------------------------------------------------------
 | Rutas de Autenticación (/api/auth/...)
@@ -258,7 +261,37 @@ Route::middleware('auth:sanctum')->prefix('student-skill-evaluations')->group(fu
     Route::get('/summary/{studentId}', [StudentSkillEvaluationsController::class, 'summary']);
     Route::get('/class/{sessionId}/report', [StudentSkillEvaluationsController::class, 'classReport']);
 });
+
+/**
+ * Endpoints para el módulo de convocatorias de examen, incluyendo
+ * la gestión de convocatorias, estados de convocatoria, estudiantes asociados, resultados y cancelaciones.
+ */
+
+Route::middleware('auth:sanctum')->prefix('exam-calls')->group(function () {
+    Route::get('/ready-for-exam', [ExamCallsController::class, 'readyForExamList']);
+    Route::get('/', [ExamCallsController::class, 'index']);
+    Route::get('/{id}', [ExamCallsController::class, 'show']);
+    Route::post('/', [ExamCallsController::class, 'store']);
+    Route::post('/{id}/cancel', [ExamCallsController::class, 'cancelExamCall']);
+    Route::put('/{id}', [ExamCallsController::class, 'update']);
+    Route::post('/{id}/complete', [ExamCallsController::class, 'completeExamCall']);
+    Route::get('/{id}/students', [ExamCallsController::class, 'listadoEstudiantes']);
+    Route::put('/{examCallId}/students/{studentId}/result', [ExamCallsController::class, 'updateExamStudentResult']);
+    Route::get('/student/{studentId}/history', [ExamCallsController::class, 'examHistoryByStudent']);
+    Route::get('/teacher/{teacherId}/stats', [ExamCallsController::class, 'examStats']);
+}); 
+
+/**
+ * Endpoints que devuelve los estados de resultado de examen y los estados de convocatoria de examen para que el
+ */
+Route::get('/exam-result-statuses', [ExamResultStatusController::class, 'index'])->middleware('auth:sanctum');
+Route::get('/exam-call-statuses', [ExamCallStatusController::class, 'index'])->middleware('auth:sanctum');
+
+/**
+ * Endpoint para que el admin pueda consultar las habilidades de conducción de los estudiantes, con filtros por habilidad y estado de preparación para el examen.
+ */
 Route::get('/driving-skills', [DrivingSkillsController::class, 'index'])->middleware('auth:sanctum');
+
 // Endpoint para que el admin pueda consultar todas las clases con filtros
 Route::get('/admin/classes', [AdminClassController::class, 'index'])->middleware('auth:sanctum');
 
