@@ -14,6 +14,7 @@ class ExamCalls extends Model
         'start_time',
         'exam_call_status_id',
         'notes',
+        'max_students',
     ];
 
     public function town()

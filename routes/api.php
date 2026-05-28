@@ -281,6 +281,8 @@ Route::middleware('auth:sanctum')->prefix('exam-calls')->group(function () {
     Route::get('/student/{studentId}/history', [ExamCallsController::class, 'examHistoryByStudent']);
     Route::get('/teacher/{teacherId}/stats', [ExamCallsController::class, 'examStats']);
     Route::post('/{id}/toggle', [ExamCallsController::class, 'toggle']);
+    Route::post('/{id}/students/{studentId}/confirm', [ExamCallsController::class, 'confirmAttendance']);
+    Route::post('/{id}/students/{studentId}/unconfirm', [ExamCallsController::class, 'unconfirmAttendance']);
 }); 
 
 /**
