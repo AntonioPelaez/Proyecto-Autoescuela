@@ -53,16 +53,18 @@ class ExamCallsController extends Controller
     $first = $examCall->examStudents->first();
 
     return response()->json([
-        'id' => $examCall->id,
-        'exam_date' => $examCall->exam_date,
-        'start_time' => $examCall->start_time,
-        'town_id' => $examCall->town_id,
-        'teacher_id' => $first?->teacher_id,
-        'vehicle_id' => $first?->vehicle_id,
-        'notes' => $examCall->notes,
-        'exam_call_status' => $examCall->examCallStatus,
-        'exam_students' => $examCall->examStudents,
-    ]);
+    'id' => $examCall->id,
+    'exam_date' => $examCall->exam_date,
+    'start_time' => $examCall->start_time,
+    'town_id' => $examCall->town_id,
+    'town' => $examCall->town, // 🔥 AÑADIDO
+    'teacher_id' => $first?->teacher_id,
+    'vehicle_id' => $first?->vehicle_id,
+    'notes' => $examCall->notes,
+    'exam_call_status' => $examCall->examCallStatus,
+    'exam_students' => $examCall->examStudents,
+]);
+
     }
 
     /**
@@ -263,31 +265,24 @@ class ExamCallsController extends Controller
 
 public function examHistoryByStudent($studentId)
 {
-    $history = ExamStudents::with([
+    $records = ExamStudents::with([
         'examCall.town',
-        'examCall.examCallStatus',
-        'teacher.user',
-        'vehicle',
-        'examResultStatus'
+        'examResultStatus',
     ])
     ->where('student_id', $studentId)
-    ->orderByDesc('id')
-    ->get()
-    ->map(function ($row) {
+    ->whereHas('examResultStatus', function ($q) {
+        $q->where('name', '!=', 'pendiente');
+    })
+    ->get();
+
+    return $records->map(function ($r) {
         return [
-            'exam_call_id' => $row->exam_call_id,
-            'exam_date' => $row->examCall->exam_date,
-            'start_time' => $row->examCall->start_time,
-            'town' => $row->examCall->town->name,
-            'status_convocatoria' => $row->examCall->examCallStatus->name,
-            'profesor' => $row->teacher->user->name . ' ' . $row->teacher->user->surname1,
-            'vehicle' => $row->vehicle ? $row->vehicle->plate_number : null,
-            'resultado' => $row->examResultStatus->name,
-            'result_notes' => $row->result_notes,
+            'date' => $r->examCall->exam_date,
+            'result' => $r->examResultStatus->label ?? $r->examResultStatus->name,
+            'notes' => $r->result_notes,
+            'status' => 'finalizada',
         ];
     });
-
-    return response()->json($history);
 }
 /**
  * Devuelve estadísticas de resultados de examen para un profesor específico, incluyendo el número total de estudiantes examinados, el número de aprobados, el número de suspendidos y los porcentajes correspondientes.
