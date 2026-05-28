@@ -269,6 +269,7 @@ Route::middleware('auth:sanctum')->prefix('student-skill-evaluations')->group(fu
 
 Route::middleware('auth:sanctum')->prefix('exam-calls')->group(function () {
     Route::get('/ready-for-exam', [ExamCallsController::class, 'readyForExamList']);
+    Route::get('/next-convocations', [ExamCallsController::class, 'nextConvocation']);
     Route::get('/', [ExamCallsController::class, 'index']);
     Route::get('/{id}', [ExamCallsController::class, 'show']);
     Route::post('/', [ExamCallsController::class, 'store']);

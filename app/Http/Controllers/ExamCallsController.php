@@ -341,5 +341,25 @@ public function toggle($id){
             'message' => 'La convocatoria no se puede marcar como programada o cancelada porque ya está completada.'
         ], 400);
     }
+}
+    /**
+     * Devuelve la siguiente convocatoria de examen pendiente, ordenada por fecha y hora de inicio. 
+     * Si no hay convocatorias pendientes, devuelve un mensaje indicando que no hay convocatorias para completar.
+     */
+    public function nextConvocation(){
+    $next = ExamCalls::where('exam_call_status_id', 1)
+        ->orderBy('exam_date')
+        ->orderBy('start_time')
+        ->first();
+    if ($next) {
+        return response()->json([
+            'message' => 'Siguiente convocatoria pendiente encontrada',
+            'exam_call' => $next->load(['examCallStatus', 'examStudents'])
+        ]);
+    } else {
+        return response()->json([
+            'message' => 'No hay convocatorias pendientes para completar.'
+        ], 404);
+    }
 } 
 }
