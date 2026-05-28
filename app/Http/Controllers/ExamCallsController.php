@@ -349,31 +349,40 @@ class ExamCallsController extends Controller
      * Devuelve estadísticas de resultados de examen para un profesor específico, incluyendo el número total de estudiantes examinados, el número de aprobados, el número de suspendidos y los porcentajes correspondientes.
      */
     public function examStats($teacherId)
-    {
-        $total = ExamStudents::where('teacher_id', $teacherId)
-            ->whereIn('exam_result_status_id', [2, 3])
-            ->count();
+{
+    $total = ExamStudents::where('teacher_id', $teacherId)
+        ->whereIn('exam_result_status_id', [2, 3])
+        ->count();
 
-        $aprobados = ExamStudents::where('teacher_id', $teacherId)
-            ->where('exam_result_status_id', 2)
-            ->count();
+    $aprobados = ExamStudents::where('teacher_id', $teacherId)
+        ->where('exam_result_status_id', 2)
+        ->count();
 
-        $suspendidos = ExamStudents::where('teacher_id', $teacherId)
-            ->where('exam_result_status_id', 3)
-            ->count();
+    $suspendidos = ExamStudents::where('teacher_id', $teacherId)
+        ->where('exam_result_status_id', 3)
+        ->count();
 
-        $porcentajeAprobados = $total > 0 ? round(($aprobados / $total) * 100, 2) : 0;
-        $porcentajeSuspendidos = $total > 0 ? round(($suspendidos / $total) * 100, 2) : 0;
+    $porcentajeAprobados = $total > 0 ? round(($aprobados / $total) * 100, 2) : 0;
+    $porcentajeSuspendidos = $total > 0 ? round(($suspendidos / $total) * 100, 2) : 0;
 
-        return response()->json([
-            'teacher_id' => $teacherId,
-            'total_examinados' => $total,
-            'aprobados' => $aprobados,
-            'suspendidos' => $suspendidos,
-            'porcentaje_aprobados' => $porcentajeAprobados,
-            'porcentaje_suspendidos' => $porcentajeSuspendidos,
-        ]);
-    }
+    return response()->json([
+        'teacher_id' => $teacherId,
+        'total_examinados' => $total,
+        'aprobados' => $aprobados,
+        'suspendidos' => $suspendidos,
+        'porcentaje_aprobados' => $porcentajeAprobados,
+        'porcentaje_suspendidos' => $porcentajeSuspendidos,
+
+        // 🔥 Datos listos para la gráfica circular
+        'chart' => [
+            'labels' => ['Aprobados', 'Suspendidos'],
+            'data' => [$aprobados, $suspendidos],
+            'backgroundColor' => ['#28a745', '#dc3545'], // verde / rojo
+            'borderColor' => '#ffffff',
+        ]
+    ]);
+}
+
     /**
      * Marca la siguiente convocatoria de examen pendiente como programada, actualizando su estado. 
      * Si no hay convocatorias pendientes, devuelve un mensaje indicando que no hay convocatorias para completar.
