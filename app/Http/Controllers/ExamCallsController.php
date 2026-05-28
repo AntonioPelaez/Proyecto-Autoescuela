@@ -346,20 +346,32 @@ public function toggle($id){
      * Devuelve la siguiente convocatoria de examen pendiente, ordenada por fecha y hora de inicio. 
      * Si no hay convocatorias pendientes, devuelve un mensaje indicando que no hay convocatorias para completar.
      */
-    public function nextConvocation(){
+    public function nextConvocation()
+{
     $next = ExamCalls::where('exam_call_status_id', 1)
         ->orderBy('exam_date')
         ->orderBy('start_time')
         ->first();
+
     if ($next) {
+
+        // 🔥 Cargar TODAS las relaciones necesarias para el frontend
+        $next->load([
+            'examCallStatus',
+            'examStudents.student.user',
+            'examStudents.teacher.user',
+            'examStudents.vehicle'
+        ]);
+
         return response()->json([
             'message' => 'Siguiente convocatoria pendiente encontrada',
-            'exam_call' => $next->load(['examCallStatus', 'examStudents'])
+            'exam_call' => $next
         ]);
-    } else {
-        return response()->json([
-            'message' => 'No hay convocatorias pendientes para completar.'
-        ], 404);
     }
-} 
+
+    return response()->json([
+        'message' => 'No hay convocatorias pendientes para completar.'
+    ], 404);
+}
+
 }
