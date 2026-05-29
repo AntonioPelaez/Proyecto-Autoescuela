@@ -578,5 +578,24 @@ class ExamCallsController extends Controller
 
     return response()->json($records);
 }
-
+/**
+ * Borrar convocatoria de examen, eliminando también los registros asociados en exam_students.
+ * Solo se permite borrar convocatorias que no estén completadas.
+ */
+public function destroy($id)
+{
+    $examCall = ExamCalls::findOrFail($id);
+    if ($examCall->exam_call_status_id == 2) {
+        return response()->json([
+            'message' => 'No se puede eliminar una convocatoria que ya está completada.'
+        ], 400);
+    }
+    // Eliminar registros asociados en exam_students
+    ExamStudents::where('exam_call_id', $examCall->id)->delete();
+    // Eliminar convocatoria
+    $examCall->delete();
+    return response()->json([
+        'message' => 'Convocatoria eliminada correctamente'
+    ]);
+}
 }
