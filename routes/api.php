@@ -269,6 +269,7 @@ Route::middleware('auth:sanctum')->prefix('student-skill-evaluations')->group(fu
 
 Route::middleware('auth:sanctum')->prefix('exam-calls')->group(function () {
     Route::get('/ready-for-exam', [ExamCallsController::class, 'readyForExamList']);
+    Route::get('/next-convocations', [ExamCallsController::class, 'nextConvocation']);
     Route::get('/', [ExamCallsController::class, 'index']);
     Route::get('/{id}', [ExamCallsController::class, 'show']);
     Route::post('/', [ExamCallsController::class, 'store']);
@@ -280,6 +281,10 @@ Route::middleware('auth:sanctum')->prefix('exam-calls')->group(function () {
     Route::get('/student/{studentId}/history', [ExamCallsController::class, 'examHistoryByStudent']);
     Route::get('/teacher/{teacherId}/stats', [ExamCallsController::class, 'examStats']);
     Route::post('/{id}/toggle', [ExamCallsController::class, 'toggle']);
+    Route::post('/{id}/students/{studentId}/confirm', [ExamCallsController::class, 'confirmAttendance']);
+    Route::post('/{id}/students/{studentId}/unconfirm', [ExamCallsController::class, 'unconfirmAttendance']);
+    Route::get('/student/{studentId}/convocations', [ExamCallsController::class, 'studentConvocationHistory']);
+    Route::delete('/{id}', [ExamCallsController::class, 'destroy']);
 }); 
 
 /**

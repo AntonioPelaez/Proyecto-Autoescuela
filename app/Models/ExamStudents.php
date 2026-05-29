@@ -15,6 +15,8 @@ class ExamStudents extends Model
         'vehicle_id',
         'exam_result_status_id',
         'result_notes',
+        'student_confirmed',
+        'student_confirmed_at',
     ];
 
     public function examCall()
