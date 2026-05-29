@@ -598,4 +598,56 @@ public function destroy($id)
         'message' => 'Convocatoria eliminada correctamente'
     ]);
 }
+/**
+ * Función que permite a un profesor aprobar a un estudiante específico en una convocatoria de examen,
+ * actualizando el estado de aprobación del estudiante y la fecha y hora de aprobación.
+ */
+public function approveStudent(Request $request, $examCallId, $studentId)
+{
+     $examStudent = ExamStudents::where('exam_call_id', $examCallId)
+        ->where('student_id', $studentId)
+        ->firstOrFail();
+
+    if (auth()->user()->teacherProfile->id != $examStudent->teacher_id) {
+        return response()->json([
+            'message' => 'No tienes permiso para aprobar a este estudiante.'
+        ], 403);
+    }
+
+    $examStudent->update([
+        'teacher_approved' => true,
+        'teacher_approved_at' => now(),
+    ]);
+
+    return response()->json([
+        'message' => 'Estudiante aprobado correctamente',
+        'exam_student' => $examStudent->load(['examCall', 'examResultStatus'])
+    ]);
+}
+/**
+ * Función que permite a un profesor desaprobar a un estudiante específico en una convocatoria de examen,
+ * actualizando el estado de aprobación del estudiante y la fecha y hora de desaprobación.
+ */
+public function unapproveStudent(Request $request, $examCallId, $studentId)
+{
+    $examStudent = ExamStudents::where('exam_call_id', $examCallId)
+        ->where('student_id', $studentId)
+        ->firstOrFail();
+
+    if (auth()->user()->teacherProfile->id != $examStudent->teacher_id) {
+        return response()->json([
+            'message' => 'No tienes permiso para desaprobar a este estudiante.'
+        ], 403);
+    }
+
+    $examStudent->update([
+        'teacher_approved' => false,
+        'teacher_approved_at' => null,
+    ]);
+
+    return response()->json([
+        'message' => 'Estudiante desaprobado correctamente',
+        'exam_student' => $examStudent->load(['examCall', 'examResultStatus'])
+    ]);
+}
 }
