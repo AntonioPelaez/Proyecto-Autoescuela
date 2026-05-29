@@ -283,6 +283,7 @@ Route::middleware('auth:sanctum')->prefix('exam-calls')->group(function () {
     Route::post('/{id}/toggle', [ExamCallsController::class, 'toggle']);
     Route::post('/{id}/students/{studentId}/confirm', [ExamCallsController::class, 'confirmAttendance']);
     Route::post('/{id}/students/{studentId}/unconfirm', [ExamCallsController::class, 'unconfirmAttendance']);
+    Route::get('/student/{studentId}/convocations', [ExamCallsController::class, 'studentConvocationHistory']);
 }); 
 
 /**

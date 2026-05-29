@@ -63,6 +63,7 @@ class ExamCallsController extends Controller
             'teacher_id' => $first?->teacher_id,
             'vehicle_id' => $first?->vehicle_id,
             'notes' => $examCall->notes,
+            'max_students' => $examCall->max_students,
             'exam_call_status' => $examCall->examCallStatus,
             'exam_students' => $examCall->examStudents,
         ]);
@@ -98,10 +99,13 @@ class ExamCallsController extends Controller
         }
         // Evitar duplicados
         $exists = ExamCalls::where('exam_date', $examcall['exam_date'])
-            ->where('start_time', $examcall['start_time'])
-            ->where('teacher_id', $examcall['teacher_id'])
-            ->where('vehicle_id', $examcall['vehicle_id'])
-            ->exists();
+    ->where('start_time', $examcall['start_time'])
+    ->whereHas('examStudents', function ($q) use ($examcall) {
+        $q->where('teacher_id', $examcall['teacher_id'])
+          ->where('vehicle_id', $examcall['vehicle_id']);
+    })
+    ->exists();
+
 
         if ($exists) {
             return response()->json([
@@ -114,7 +118,15 @@ class ExamCallsController extends Controller
                 $examcall['max_students']
             );
         }
-        $examCall = ExamCalls::create($examcall);
+        $examCall = ExamCalls::create([
+    'town_id' => $request->town_id,
+    'exam_date' => $request->exam_date,
+    'start_time' => $request->start_time,
+    'exam_call_status_id' => $request->exam_call_status_id, // si usas esta columna
+    'notes' => $request->notes,
+    'max_students' => $request->max_students,
+]);
+    
         foreach ($examcall['students'] as $studentId) {
             ExamStudents::create([
                 'exam_call_id' => $examCall->id,
@@ -170,56 +182,99 @@ class ExamCallsController extends Controller
     /**
      * Actualiza los detalles de una convocatoria de examen específica, incluyendo su estado, los estudiantes asociados, el profesor asignado y el vehículo utilizado.
      */
-    public function update(Request $request, $id)
-    {
-        $examCall = ExamCalls::findOrFail($id);
+  public function update(Request $request, $id)
+{
+    $examCall = ExamCalls::findOrFail($id);
 
-        $data = $request->validate([
-            'town_id' => 'sometimes|exists:towns,id',
-            'exam_date' => 'sometimes|date',
-            'start_time' => 'sometimes',
-            'exam_call_status_id' => 'sometimes|exists:exam_call_status,id',
-            'teacher_id' => 'sometimes|exists:teacher_profiles,id',
-            'vehicle_id' => 'sometimes|exists:vehicles,id',
-            'notes' => 'nullable|string',
-            'students' => 'array',
-            'students.*' => 'exists:student_profiles,id',
+    // Validación
+    $data = $request->validate([
+        'town_id' => 'sometimes|exists:towns,id',
+        'exam_date' => 'sometimes|date',
+        'start_time' => 'sometimes',
+        'exam_call_status_id' => 'sometimes|exists:exam_call_status,id',
+        'teacher_id' => 'sometimes|exists:teacher_profiles,id',
+        'vehicle_id' => 'sometimes|exists:vehicles,id',
+        'notes' => 'nullable|string',
+        'students' => 'array',
+        'students.*' => 'exists:student_profiles,id',
+        'max_students' => 'sometimes|integer|min:1',
+    ]);
+
+    // ---------------------------------------------------------
+    // 🔥 1. Actualizar convocatoria
+    // ---------------------------------------------------------
+    $examCall->update($data);
+
+    // ---------------------------------------------------------
+    // 🔥 2. Actualizar profesor y vehículo en TODOS los exam_students
+    // ---------------------------------------------------------
+    ExamStudents::where('exam_call_id', $examCall->id)
+        ->update([
+            'teacher_id' => $data['teacher_id'] ?? $examCall->teacher_id,
+            'vehicle_id' => $data['vehicle_id'] ?? $examCall->vehicle_id,
         ]);
 
-        // Actualizar convocatoria
-        $examCall->update($data);
+    // ---------------------------------------------------------
+    // 🔥 3. Sincronizar alumnos
+    // ---------------------------------------------------------
+    if (isset($data['students'])) {
 
-        // 🔥 Actualizar profesor y vehículo en exam_students
-        ExamStudents::where('exam_call_id', $examCall->id)
-            ->update([
-                'teacher_id' => $data['teacher_id'] ?? $examCall->teacher_id,
-                'vehicle_id' => $data['vehicle_id'] ?? $examCall->vehicle_id,
-            ]);
+        $existing = ExamStudents::where('exam_call_id', $examCall->id)
+            ->pluck('student_id')
+            ->toArray();
 
-        // 🔥 Actualizar alumnos seleccionados
-        if (isset($data['students'])) {
-            // Borrar alumnos antiguos
-            ExamStudents::where('exam_call_id', $examCall->id)->delete();
+        $new = $data['students'];
 
-            // Crear nuevos
-            foreach ($data['students'] as $studentId) {
-                ExamStudents::create([
-                    'exam_call_id' => $examCall->id,
-                    'student_id' => $studentId,
-                    'teacher_id' => $data['teacher_id'],
-                    'vehicle_id' => $data['vehicle_id'],
-                    'exam_result_status_id' => 1,
-                    'student_confirmed' => false,
-                    'student_confirmed_at' => null,
-                ]);
+        // Alumnos a eliminar
+        $toDelete = array_diff($existing, $new);
+
+        // Alumnos a añadir
+        $toAdd = array_diff($new, $existing);
+
+        // ---------------------------------------------------------
+        // ❌ 3A. Eliminar alumnos que ya no están + sus datos asociados
+        // ---------------------------------------------------------
+        if (!empty($toDelete)) {
+
+            foreach ($toDelete as $studentId) {
+                
+                // Finalmente borrar exam_students
+                ExamStudents::where('exam_call_id', $examCall->id)
+                    ->where('student_id', $studentId)
+                    ->delete();
             }
         }
 
-        return response()->json([
-            'message' => 'Convocatoria actualizada correctamente',
-            'exam_call' => $examCall->load(['examCallStatus', 'examStudents'])
-        ]);
+        // ---------------------------------------------------------
+        // ✔ 3B. Añadir nuevos alumnos
+        // ---------------------------------------------------------
+        foreach ($toAdd as $studentId) {
+            ExamStudents::create([
+                'exam_call_id' => $examCall->id,
+                'student_id' => $studentId,
+                'teacher_id' => $data['teacher_id'] ?? $examCall->teacher_id,
+                'vehicle_id' => $data['vehicle_id'] ?? $examCall->vehicle_id,
+                'exam_result_status_id' => 1, // pendiente
+                'student_confirmed' => false,
+                'student_confirmed_at' => null,
+            ]);
+        }
     }
+
+    // ---------------------------------------------------------
+    // 🔥 4. Respuesta final
+    // ---------------------------------------------------------
+    return response()->json([
+        'message' => 'Convocatoria actualizada correctamente',
+        'exam_call' => $examCall->load([
+            'examCallStatus',
+            'examStudents.student',
+            'examStudents.examResultStatus'
+        ])
+    ]);
+}
+
+
 
 
     /**
@@ -495,4 +550,34 @@ class ExamCallsController extends Controller
             'exam_student' => $examStudent->load(['examCall', 'examResultStatus'])
         ]);
     }
+    /**
+     * Historial de convocatorias para el alumno, sin tener duiplicados.
+     */
+    public function studentConvocationHistory($studentId)
+{
+    $records = ExamStudents::with([
+        'examCall.town',
+        'examCall.examCallStatus',
+        'examResultStatus'
+    ])
+    ->where('student_id', $studentId)
+    ->get()
+    ->groupBy('exam_call_id') // ❗ evita duplicados
+    ->map(function ($group) {
+        $r = $group->first();
+
+        return [
+            'exam_call_id' => $r->exam_call_id,
+            'date' => $r->examCall->exam_date,
+            'time' => $r->examCall->start_time,
+            'student_confirmed' => $r->student_confirmed,
+            'exam_status' => $r->examResultStatus->label ?? $r->examResultStatus->name,
+            'convocatoria_status' => $r->examCall->examCallStatus->name,
+        ];
+    })
+    ->values();
+
+    return response()->json($records);
+}
+
 }
