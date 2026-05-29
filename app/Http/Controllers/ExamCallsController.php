@@ -74,76 +74,75 @@ class ExamCallsController extends Controller
      */
 
     public function store(Request $request)
-    {
-        $examcall = $request->validate([
-            'town_id' => 'required|exists:towns,id',
-            'exam_date' => 'required|date',
-            'start_time' => 'required',
-            'exam_call_status_id' => 'required|exists:exam_call_status,id',
-            'teacher_id' => 'required|exists:teacher_profiles,id',
-            'vehicle_id' => 'required|exists:vehicles,id',
-            'students' => 'required|array',
-            'students.*' => 'exists:student_profiles,id',
-            'notes' => 'nullable|string',
-            'max_students' => 'nullable|integer|min:1',
-        ]);
-        $studentsReady = StudentSkillEvaluations::whereIn('student_profile_id', $examcall['students'])
-            ->where('ready_for_exam', 1)
-            ->pluck('student_profile_id')
-            ->unique()
-            ->toArray();
-        if (count($studentsReady) !== count($examcall['students'])) {
-            return response()->json([
-                'message' => 'Uno o más estudiantes NO están preparados para el examen.'
-            ], 400);
-        }
-        // Evitar duplicados
-        $exists = ExamCalls::where('exam_date', $examcall['exam_date'])
-    ->where('start_time', $examcall['start_time'])
-    ->whereHas('examStudents', function ($q) use ($examcall) {
-        $q->where('teacher_id', $examcall['teacher_id'])
-          ->where('vehicle_id', $examcall['vehicle_id']);
-    })
-    ->exists();
+{
+    $examcall = $request->validate([
+        'town_id' => 'required|exists:towns,id',
+        'exam_date' => 'required|date',
+        'start_time' => 'required',
+        'exam_call_status_id' => 'required|exists:exam_call_status,id',
+        'teacher_id' => 'required|exists:teacher_profiles,id',
+        'vehicle_id' => 'required|exists:vehicles,id',
+        'students' => 'required|array',
+        'students.*' => 'exists:student_profiles,id',
+        'notes' => 'nullable|string',
+        'max_students' => 'nullable|integer|min:1',
+    ]);
 
+    // 1. Validar que todos los alumnos están aptos
+    $studentsReady = StudentSkillEvaluations::whereIn('student_profile_id', $examcall['students'])
+        ->where('ready_for_exam', 1)
+        ->pluck('student_profile_id')
+        ->unique()
+        ->toArray();
 
-        if ($exists) {
-            return response()->json([
-                'message' => 'Ya existe una convocatoria con ese profesor, vehículo, fecha y hora.'
-            ], 400);
-        }
-        // Selección automática si no se envían alumnos
-        if (!isset($examcall['students'])) {
-            $examcall['students'] = $this->selectStudentsByAptoRatio(
-                $examcall['max_students']
-            );
-        }
-        $examCall = ExamCalls::create([
-    'town_id' => $request->town_id,
-    'exam_date' => $request->exam_date,
-    'start_time' => $request->start_time,
-    'exam_call_status_id' => $request->exam_call_status_id, // si usas esta columna
-    'notes' => $request->notes,
-    'max_students' => $request->max_students,
-]);
-    
-        foreach ($examcall['students'] as $studentId) {
-            ExamStudents::create([
-                'exam_call_id' => $examCall->id,
-                'student_id' => $studentId,
-                'teacher_id' => $examcall['teacher_id'],
-                'vehicle_id' => $examcall['vehicle_id'],
-                'exam_result_status_id' => 1, // pendiente
-                'result_notes' => null,
-                'student_confirmed' => false,
-                'student_confirmed_at' => null,
-            ]);
-        }
+    if (count($studentsReady) !== count($examcall['students'])) {
         return response()->json([
-            'message' => 'Convocatoria creada correctamente',
-            'exam_call' => $examCall->load(['examCallStatus', 'examStudents'])
-        ], 201);
+            'message' => 'Uno o más estudiantes NO están preparados para el examen.'
+        ], 400);
     }
+
+    // 2. Evitar duplicados SOLO con campos existentes
+    $exists = ExamCalls::where('exam_date', $examcall['exam_date'])
+        ->where('start_time', $examcall['start_time'])
+        ->where('town_id', $examcall['town_id'])
+        ->exists();
+
+    if ($exists) {
+        return response()->json([
+            'message' => 'Ya existe una convocatoria con esa fecha, hora y localidad.'
+        ], 400);
+    }
+
+    // 3. Crear convocatoria
+    $examCall = ExamCalls::create([
+        'town_id' => $examcall['town_id'],
+        'exam_date' => $examcall['exam_date'],
+        'start_time' => $examcall['start_time'],
+        'exam_call_status_id' => $examcall['exam_call_status_id'],
+        'notes' => $examcall['notes'] ?? null,
+        'max_students' => $examcall['max_students'] ?? null,
+    ]);
+
+    // 4. Insertar alumnos en exam_students
+    foreach ($examcall['students'] as $studentId) {
+        ExamStudents::create([
+            'exam_call_id' => $examCall->id,
+            'student_id' => $studentId,
+            'teacher_id' => $examcall['teacher_id'],
+            'vehicle_id' => $examcall['vehicle_id'],
+            'exam_result_status_id' => 1,
+            'result_notes' => null,
+            'student_confirmed' => false,
+            'student_confirmed_at' => null,
+        ]);
+    }
+
+    return response()->json([
+        'message' => 'Convocatoria creada correctamente',
+        'exam_call' => $examCall->load(['examCallStatus', 'examStudents'])
+    ], 201);
+}
+
     /**
      * Método privado que selecciona estudiantes automáticamente para una convocatoria de examen 
      * basada en la proporción de clases "apto" que han tenido en su evaluación de habilidades, 
