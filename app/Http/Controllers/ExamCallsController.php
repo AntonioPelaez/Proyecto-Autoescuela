@@ -25,16 +25,33 @@ class ExamCallsController extends Controller
      */
 
     public function listadoEstudiantes($id)
-    {
-        $examCall = ExamCalls::with([
-            'examStudents.student.user',
-            'examStudents.teacher.user',
-            'examStudents.vehicle',
-            'examStudents.examResultStatus'
-        ])->findOrFail($id);
+{
+    $examCall = ExamCalls::with([
+        'examStudents.student.user',
+        'examStudents.teacher.user',
+        'examStudents.vehicle',
+        'examStudents.examResultStatus'
+    ])->findOrFail($id);
 
-        return response()->json($examCall->examStudents);
-    }
+    // 🔥 Asegurar que devolvemos teacher_approved y teacher_approved_at
+    $students = $examCall->examStudents->map(function ($s) {
+        return [
+            'student_id' => $s->student_id,
+            'student' => $s->student,
+            'teacher' => $s->teacher,
+            'vehicle' => $s->vehicle,
+            'exam_result_status' => $s->examResultStatus,
+            'result_notes' => $s->result_notes,
+            'student_confirmed' => $s->student_confirmed,
+            'student_confirmed_at' => $s->student_confirmed_at,
+            'teacher_approved' => $s->teacher_approved,            // ✔ AÑADIDO
+            'teacher_approved_at' => $s->teacher_approved_at,      // ✔ AÑADIDO
+        ];
+    });
+
+    return response()->json($students);
+}
+
 
 
     /**
@@ -598,4 +615,230 @@ public function destroy($id)
         'message' => 'Convocatoria eliminada correctamente'
     ]);
 }
+/**
+ * Función que permite a un profesor aprobar a un estudiante específico en una convocatoria de examen,
+ * actualizando el estado de aprobación del estudiante y la fecha y hora de aprobación.
+ */
+public function approveStudent(Request $request, $examCallId, $studentId)
+{
+     $examStudent = ExamStudents::where('exam_call_id', $examCallId)
+        ->where('student_id', $studentId)
+        ->firstOrFail();
+
+    if (auth()->user()->teacherProfile->id != $examStudent->teacher_id) {
+        return response()->json([
+            'message' => 'No tienes permiso para aprobar a este estudiante.'
+        ], 403);
+    }
+
+    $examStudent->update([
+        'teacher_approved' => true,
+        'teacher_approved_at' => now(),
+    ]);
+
+    return response()->json([
+        'message' => 'Estudiante aprobado correctamente',
+        'exam_student' => $examStudent->load(['examCall', 'examResultStatus'])
+    ]);
+}
+/**
+ * Función que permite a un profesor desaprobar a un estudiante específico en una convocatoria de examen,
+ * actualizando el estado de aprobación del estudiante y la fecha y hora de desaprobación.
+ */
+public function unapproveStudent(Request $request, $examCallId, $studentId)
+{
+    $examStudent = ExamStudents::where('exam_call_id', $examCallId)
+        ->where('student_id', $studentId)
+        ->firstOrFail();
+
+    if (auth()->user()->teacherProfile->id != $examStudent->teacher_id) {
+        return response()->json([
+            'message' => 'No tienes permiso para desaprobar a este estudiante.'
+        ], 403);
+    }
+
+    $examStudent->update([
+        'teacher_approved' => false,
+        'teacher_approved_at' => null,
+    ]);
+
+    return response()->json([
+        'message' => 'Estudiante desaprobado correctamente',
+        'exam_student' => $examStudent->load(['examCall', 'examResultStatus'])
+    ]);
+}
+/**
+ * Función privada que calcula el número de plazas restantes para una convocatoria de examen específica,
+ * restando el número de estudiantes actualmente inscritos del número máximo de estudiantes permitido por la convocatoria.
+ * Si la convocatoria no tiene un límite de estudiantes, devuelve null.
+ */
+private function getRemainingSeats($examCallId)
+{
+    $examCall = ExamCalls::findOrFail($examCallId);
+
+    if (!$examCall->max_students || $examCall->max_students <= 0) {
+        return null; // ilimitado
+    }
+
+    $current = ExamStudents::where('exam_call_id', $examCallId)->count();
+
+    return max($examCall->max_students - $current, 0);
+}
+
+/**
+ * Generar un listado de estudiantes aceptados por el profesor
+ * y además poder quitar alumnos de esa convocatoria si
+ * el alumno le ha pasado algo y no puede presentarse al examen, o el profesor ha decidido que no lo aprueba.
+ * 
+ */
+public function listedApprovedStudents($examCallId)
+{
+    $approvedStudents = ExamStudents::with([
+        'student.user',
+        'teacher.user',
+        'vehicle',
+        'examResultStatus'
+    ])
+    ->where('exam_call_id', $examCallId)
+    ->where('teacher_approved', true)
+    ->get();
+    return response()->json($approvedStudents);
+}
+/**
+ * Función que permite a un profesor quitar a un estudiante específico de la lista de aprobados en una convocatoria de examen,
+ * actualizando el estado de aprobación del estudiante y la fecha y hora de desaprobación.
+ */
+public function removeApprovedStudent(Request $request, $examCallId, $studentId)
+{
+    $examStudent = ExamStudents::where('exam_call_id', $examCallId)
+        ->where('student_id', $studentId)
+        ->firstOrFail();
+
+    if (auth()->user()->teacherProfile->id != $examStudent->teacher_id) {
+        return response()->json([
+            'message' => 'No tienes permiso para quitar a este estudiante.'
+        ], 403);
+    }
+
+    // 🔥 NO BORRAR — solo marcar como no presentado
+    $examStudent->update([
+        'exam_result_status_id' => 4, // No presentado
+        'result_notes' => $request->result_notes ?? null,
+        'student_confirmed' => false,
+        'student_confirmed_at' => null,
+        'teacher_approved' => false,
+        'teacher_approved_at' => null,
+    ]);
+
+    return response()->json([
+        'message' => 'Estado actualizado correctamente',
+        'remaining_seats' => $this->getRemainingSeats($examCallId)
+    ]);
+}
+
+/**
+ * Generar un listado de estudiantes pendientes de aprobación por el profesor
+ * y además poder añadir alumnos a esa convocatoria si el alumno le ha pasado algo y no puede presentarse al examen, o el profesor ha decidido que no lo aprueba.
+ */
+public function listPendingApprovalStudents($examCallId)
+{
+    $examCall = ExamCalls::findOrFail($examCallId);
+
+    $remaining = $this->getRemainingSeats($examCallId);
+
+    // 1. Alumnos dentro
+    $pendingInside = ExamStudents::with([
+        'student.user',
+        'teacher.user',
+        'vehicle',
+        'examResultStatus'
+    ])
+    ->where('exam_call_id', $examCallId)
+    ->where('teacher_approved', false)
+    ->get();
+
+    // Si no hay plazas → no mostrar alumnos fuera
+    if ($remaining !== null && $remaining <= 0) {
+        return response()->json([
+            'pending_inside' => $pendingInside,
+            'pending_outside' => [],
+            'remaining_seats' => 0
+        ]);
+    }
+
+    // 2. Alumnos aptos fuera
+    $insideIds = $pendingInside->pluck('student_id')->toArray();
+
+    $studentsReady = StudentSkillEvaluations::where('ready_for_exam', true)
+        ->with('studentProfile.user')
+        ->get()
+        ->pluck('studentProfile')
+        ->unique('id')
+        ->values();
+
+    $pendingOutside = $studentsReady
+        ->filter(fn($s) => !in_array($s->id, $insideIds))
+        ->map(function ($s) {
+            return [
+                'id' => $s->id,
+                'name' => $s->user->name,
+                'surname' => trim($s->user->surname1 . ' ' . $s->user->surname2),
+                'town' => $s->town ? $s->town->name : null,
+            ];
+        })
+        ->values();
+
+    return response()->json([
+        'pending_inside' => $pendingInside,
+        'pending_outside' => $pendingOutside,
+        'remaining_seats' => $remaining
+    ]);
+}
+
+
+/**
+ * Función que permite a un profesor añadir a un estudiante específico a la lista de aprobados en una convocatoria de examen,
+ * actualizando el estado de aprobación del estudiante y la fecha y hora de aprobación.
+ */
+public function addApprovedStudent(Request $request, $examCallId, $studentId)
+{
+    $examCall = ExamCalls::findOrFail($examCallId);
+
+    $exists = ExamStudents::where('exam_call_id', $examCallId)
+        ->where('student_id', $studentId)
+        ->exists();
+
+    if ($exists) {
+        return response()->json([
+            'message' => 'El alumno ya está en esta convocatoria.'
+        ], 400);
+    }
+
+    $remaining = $this->getRemainingSeats($examCallId);
+    if ($remaining !== null && $remaining <= 0) {
+        return response()->json([
+            'message' => 'No hay plazas disponibles.'
+        ], 400);
+    }
+
+    $examStudent = ExamStudents::create([
+        'exam_call_id' => $examCallId,
+        'student_id' => $studentId,
+        'teacher_id' => auth()->user()->teacherProfile->id,
+        'vehicle_id' => $examCall->vehicle_id,
+        'exam_result_status_id' => 1,
+        'result_notes' => $request->result_notes ?? null,   // 🔥 AÑADIDO
+        'student_confirmed' => false,
+        'student_confirmed_at' => null,
+        'teacher_approved' => true,
+        'teacher_approved_at' => now(),
+    ]);
+
+    return response()->json([
+        'message' => 'Alumno añadido correctamente',
+        'exam_student' => $examStudent
+    ]);
+}
+
+
 }

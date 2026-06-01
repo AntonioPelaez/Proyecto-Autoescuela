@@ -285,6 +285,12 @@ Route::middleware('auth:sanctum')->prefix('exam-calls')->group(function () {
     Route::post('/{id}/students/{studentId}/unconfirm', [ExamCallsController::class, 'unconfirmAttendance']);
     Route::get('/student/{studentId}/convocations', [ExamCallsController::class, 'studentConvocationHistory']);
     Route::delete('/{id}', [ExamCallsController::class, 'destroy']);
+    Route::post('/{examCallId}/students/{studentId}/approved', [ExamCallsController::class, 'approveStudent']);
+    Route::post('/{examCallId}/students/{studentId}/unapproved', [ExamCallsController::class, 'unapproveStudent']);
+    Route::get('/approved-students/{examCallId}', [ExamCallsController::class, 'listedApprovedStudents']);
+    Route::get('/pending-approval-students/{examCallId}', [ExamCallsController::class, 'listPendingApprovalStudents']);
+    Route::post('/{examCallId}/students/{studentId}/add-approved', [ExamCallsController::class, 'addApprovedStudent']);
+    Route::post('/{examCallId}/students/{studentId}/remove-approved', [ExamCallsController::class, 'removeApprovedStudent']);
 }); 
 
 /**

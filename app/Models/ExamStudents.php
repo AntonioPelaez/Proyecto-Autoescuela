@@ -17,6 +17,8 @@ class ExamStudents extends Model
         'result_notes',
         'student_confirmed',
         'student_confirmed_at',
+        'teacher_approved',
+        'teacher_approved_at',
     ];
 
     public function examCall()
