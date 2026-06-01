@@ -720,20 +720,18 @@ public function removeApprovedStudent(Request $request, $examCallId, $studentId)
         ], 403);
     }
 
-    // Actualizar estado
+    // 🔥 NO BORRAR — solo marcar como no presentado
     $examStudent->update([
-        'exam_result_status_id' => 4,
+        'exam_result_status_id' => 4, // No presentado
+        'result_notes' => $request->result_notes ?? null,
         'student_confirmed' => false,
         'student_confirmed_at' => null,
         'teacher_approved' => false,
         'teacher_approved_at' => null,
     ]);
 
-    // 🔥 Eliminarlo de la convocatoria
-    $examStudent->delete();
-
     return response()->json([
-        'message' => 'Estudiante eliminado correctamente',
+        'message' => 'Estado actualizado correctamente',
         'remaining_seats' => $this->getRemainingSeats($examCallId)
     ]);
 }
@@ -806,7 +804,6 @@ public function addApprovedStudent(Request $request, $examCallId, $studentId)
 {
     $examCall = ExamCalls::findOrFail($examCallId);
 
-    // Verificar que no existe ya
     $exists = ExamStudents::where('exam_call_id', $examCallId)
         ->where('student_id', $studentId)
         ->exists();
@@ -817,34 +814,31 @@ public function addApprovedStudent(Request $request, $examCallId, $studentId)
         ], 400);
     }
 
-    // 🔥 Verificar plazas disponibles
     $remaining = $this->getRemainingSeats($examCallId);
-
     if ($remaining !== null && $remaining <= 0) {
         return response()->json([
-            'message' => 'No hay plazas disponibles en esta convocatoria.',
-            'remaining_seats' => 0
+            'message' => 'No hay plazas disponibles.'
         ], 400);
     }
 
-    // Añadir alumno
     $examStudent = ExamStudents::create([
         'exam_call_id' => $examCallId,
         'student_id' => $studentId,
-        'teacher_id' => $examCall->examStudents->first()?->teacher_id,
-        'vehicle_id' => $examCall->examStudents->first()?->vehicle_id,
+        'teacher_id' => auth()->user()->teacherProfile->id,
+        'vehicle_id' => $examCall->vehicle_id,
         'exam_result_status_id' => 1,
-        'student_confirmed' => true,
-        'student_confirmed_at' => now(),
+        'result_notes' => $request->result_notes ?? null,   // 🔥 AÑADIDO
+        'student_confirmed' => false,
+        'student_confirmed_at' => null,
         'teacher_approved' => true,
         'teacher_approved_at' => now(),
     ]);
 
     return response()->json([
-        'message' => 'Estudiante añadido correctamente',
-        'remaining_seats' => $this->getRemainingSeats($examCallId),
-        'exam_student' => $examStudent->load(['examCall', 'examResultStatus'])
+        'message' => 'Alumno añadido correctamente',
+        'exam_student' => $examStudent
     ]);
 }
+
 
 }
