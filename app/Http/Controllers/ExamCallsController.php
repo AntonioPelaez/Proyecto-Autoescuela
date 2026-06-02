@@ -531,6 +531,7 @@ class ExamCallsController extends Controller
         $examStudent->update([
             'student_confirmed' => true,
             'student_confirmed_at' => now(),
+            'exam_result_status_id' => 1, 
         ]);
 
         return response()->json([
