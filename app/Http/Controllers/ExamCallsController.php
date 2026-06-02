@@ -627,7 +627,7 @@ public function approveStudent(Request $request, $examCallId, $studentId)
 
     if (auth()->user()->teacherProfile->id != $examStudent->teacher_id) {
         return response()->json([
-            'message' => 'No tienes permiso para aprobar a este estudiante.'
+            'message' => 'Tiene que ser el profesor asignado a este estudiante en esta convocatoria.'
         ], 403);
     }
 
@@ -716,7 +716,7 @@ public function removeApprovedStudent(Request $request, $examCallId, $studentId)
 
     if (auth()->user()->teacherProfile->id != $examStudent->teacher_id) {
         return response()->json([
-            'message' => 'No tienes permiso para quitar a este estudiante.'
+            'message' => 'Tiene que ser el profesor asignado a este estudiante en esta convocatoria.'
         ], 403);
     }
 
@@ -802,7 +802,16 @@ public function listPendingApprovalStudents($examCallId)
  */
 public function addApprovedStudent(Request $request, $examCallId, $studentId)
 {
-    $examCall = ExamCalls::findOrFail($examCallId);
+    $examCall = ExamCalls::with('examStudents')->findOrFail($examCallId);
+
+    // Obtener teacher_id y vehicle_id desde el PRIMER alumno de la convocatoria
+    $first = $examCall->examStudents->first();
+
+    if (!$first) {
+        return response()->json([
+            'message' => 'No hay información de profesor o vehículo en esta convocatoria.'
+        ], 400);
+    }
 
     $exists = ExamStudents::where('exam_call_id', $examCallId)
         ->where('student_id', $studentId)
@@ -821,13 +830,13 @@ public function addApprovedStudent(Request $request, $examCallId, $studentId)
         ], 400);
     }
 
+    // Crear alumno con teacher y vehicle heredados
     $examStudent = ExamStudents::create([
         'exam_call_id' => $examCallId,
         'student_id' => $studentId,
-        'teacher_id' => auth()->user()->teacherProfile->id,
-        'vehicle_id' => $examCall->vehicle_id,
+        'teacher_id' => $first->teacher_id,
+        'vehicle_id' => $first->vehicle_id,
         'exam_result_status_id' => 1,
-        'result_notes' => $request->result_notes ?? null,   // 🔥 AÑADIDO
         'student_confirmed' => false,
         'student_confirmed_at' => null,
         'teacher_approved' => true,
@@ -835,10 +844,12 @@ public function addApprovedStudent(Request $request, $examCallId, $studentId)
     ]);
 
     return response()->json([
-        'message' => 'Alumno añadido correctamente',
+        'message' => 'Alumno añadido y aprobado correctamente',
+        'remaining_seats' => $this->getRemainingSeats($examCallId),
         'exam_student' => $examStudent
     ]);
 }
+
 
 
 }
