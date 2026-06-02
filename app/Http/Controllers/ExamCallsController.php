@@ -525,30 +525,45 @@ class ExamCallsController extends Controller
      * actualizando el estado de confirmación del estudiante y la fecha y hora de confirmación.
      */
     public function confirmAttendance(Request $request, $examCallId, $studentId)
-    {
-        $examStudent = ExamStudents::where('exam_call_id', $examCallId)
-            ->where('student_id', $studentId)
-            ->firstOrFail();
+{
+    if (auth()->user()->studentProfile->id != $studentId) {
+        return response()->json([
+            'message' => 'No tienes permiso para confirmar la asistencia de este estudiante.'
+        ], 403);
+    }
 
-        if (auth()->user()->studentProfile->id != $studentId) {
-            return response()->json([
-                'message' => 'No tienes permiso para confirmar la asistencia de este estudiante.'
-            ], 403);
-        }
+    // Buscar registro existente
+    $examStudent = ExamStudents::where('exam_call_id', $examCallId)
+        ->where('student_id', $studentId)
+        ->first();
 
+    // 🔥 Si NO existe → crearlo
+    if (!$examStudent) {
+        $examCall = ExamCalls::findOrFail($examCallId);
 
-        // Actualizar estado de confirmación
+        $examStudent = ExamStudents::create([
+            'exam_call_id' => $examCallId,
+            'student_id' => $studentId,
+            'teacher_id' => $examCall->examStudents->first()->teacher_id ?? null,
+            'vehicle_id' => $examCall->examStudents->first()->vehicle_id ?? null,
+            'exam_result_status_id' => 1,
+            'student_confirmed' => true,
+            'student_confirmed_at' => now(),
+        ]);
+    } else {
+        // Si existe → actualizar
         $examStudent->update([
             'student_confirmed' => true,
             'student_confirmed_at' => now(),
-            'exam_result_status_id' => 1, 
-        ]);
-
-        return response()->json([
-            'message' => 'Asistencia confirmada correctamente',
-            'exam_student' => $examStudent->load(['examCall', 'examResultStatus'])
         ]);
     }
+
+    return response()->json([
+        'message' => 'Asistencia confirmada correctamente',
+        'exam_student' => $examStudent->load(['examCall', 'examResultStatus'])
+    ]);
+}
+
     /**
      * Función que permite a un estudiante desconfirmar su asistencia a una convocatoria de examen específica, 
      * actualizando el estado de confirmación del estudiante y la fecha y hora de confirmación a null.
@@ -760,7 +775,7 @@ public function listPendingApprovalStudents($examCallId)
 
     $remaining = $this->getRemainingSeats($examCallId);
 
-    // 1. Alumnos dentro
+    // 1️⃣ Alumnos dentro (NO aprobados)
     $pendingInside = ExamStudents::with([
         'student.user',
         'teacher.user',
@@ -768,10 +783,16 @@ public function listPendingApprovalStudents($examCallId)
         'examResultStatus'
     ])
     ->where('exam_call_id', $examCallId)
-    ->where('teacher_approved', false)
+->where('teacher_approved', false)
+->where('exam_result_status_id', 1) // 1 = pendiente
+
+    
     ->get();
 
-    // Si no hay plazas → no mostrar alumnos fuera
+    // IDs dentro
+    $insideIds = $pendingInside->pluck('student_id')->toArray();
+
+    // 2️⃣ Si no hay plazas → NO mostrar alumnos fuera
     if ($remaining !== null && $remaining <= 0) {
         return response()->json([
             'pending_inside' => $pendingInside,
@@ -780,9 +801,7 @@ public function listPendingApprovalStudents($examCallId)
         ]);
     }
 
-    // 2. Alumnos aptos fuera
-    $insideIds = $pendingInside->pluck('student_id')->toArray();
-
+    // 3️⃣ Alumnos aptos fuera
     $studentsReady = StudentSkillEvaluations::where('ready_for_exam', true)
         ->with('studentProfile.user')
         ->get()
@@ -790,8 +809,19 @@ public function listPendingApprovalStudents($examCallId)
         ->unique('id')
         ->values();
 
+    // ❗ EXCLUSIÓN CRÍTICA:
+    // - No incluir alumnos que YA están aprobados
+    // - No incluir alumnos que YA están dentro
+    $approvedIds = ExamStudents::where('exam_call_id', $examCallId)
+        ->where('teacher_approved', true)
+        ->pluck('student_id')
+        ->toArray();
+
     $pendingOutside = $studentsReady
-        ->filter(fn($s) => !in_array($s->id, $insideIds))
+        ->filter(fn($s) =>
+            !in_array($s->id, $insideIds) &&
+            !in_array($s->id, $approvedIds)
+        )
         ->map(function ($s) {
             return [
                 'id' => $s->id,
@@ -810,60 +840,53 @@ public function listPendingApprovalStudents($examCallId)
 }
 
 
+
 /**
  * Función que permite a un profesor añadir a un estudiante específico a la lista de aprobados en una convocatoria de examen,
  * actualizando el estado de aprobación del estudiante y la fecha y hora de aprobación.
  */
 public function addApprovedStudent(Request $request, $examCallId, $studentId)
 {
-    $examCall = ExamCalls::with('examStudents')->findOrFail($examCallId);
-
-    // Obtener teacher_id y vehicle_id desde el PRIMER alumno de la convocatoria
-    $first = $examCall->examStudents->first();
-
-    if (!$first) {
-        return response()->json([
-            'message' => 'No hay información de profesor o vehículo en esta convocatoria.'
-        ], 400);
-    }
-
-    $exists = ExamStudents::where('exam_call_id', $examCallId)
+    // Buscar si ya existe
+    $examStudent = ExamStudents::where('exam_call_id', $examCallId)
         ->where('student_id', $studentId)
-        ->exists();
+        ->first();
 
-    if ($exists) {
+    if ($examStudent) {
+        // Ya existe → solo actualizar
+        $examStudent->update([
+            'teacher_approved' => true,
+            'teacher_approved_at' => now(),
+            'exam_result_status_id' => 1, // pendiente
+            'student_confirmed' => false,
+            'student_confirmed_at' => null,
+        ]);
+
         return response()->json([
-            'message' => 'El alumno ya está en esta convocatoria.'
-        ], 400);
+            'message' => 'Alumno aprobado correctamente (actualizado)',
+            'exam_student' => $examStudent
+        ]);
     }
 
-    $remaining = $this->getRemainingSeats($examCallId);
-    if ($remaining !== null && $remaining <= 0) {
-        return response()->json([
-            'message' => 'No hay plazas disponibles.'
-        ], 400);
-    }
+    // Si NO existe → crearlo
+    $examCall = ExamCalls::findOrFail($examCallId);
 
-    // Crear alumno con teacher y vehicle heredados
     $examStudent = ExamStudents::create([
         'exam_call_id' => $examCallId,
         'student_id' => $studentId,
-        'teacher_id' => $first->teacher_id,
-        'vehicle_id' => $first->vehicle_id,
+        'teacher_id' => $examCall->examStudents->first()->teacher_id ?? null,
+        'vehicle_id' => $examCall->examStudents->first()->vehicle_id ?? null,
         'exam_result_status_id' => 1,
-        'student_confirmed' => false,
-        'student_confirmed_at' => null,
         'teacher_approved' => true,
         'teacher_approved_at' => now(),
+        'student_confirmed' => false,
+        'student_confirmed_at' => null,
     ]);
 
     return response()->json([
         'message' => 'Alumno añadido y aprobado correctamente',
-        'remaining_seats' => $this->getRemainingSeats($examCallId),
         'exam_student' => $examStudent
     ]);
 }
-
-
 
 }
