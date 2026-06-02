@@ -13,11 +13,21 @@ class ExamCallsController extends Controller
      * Devuelve una lista de todas las convocatorias de examen, incluyendo su estado y los estudiantes asociados a cada convocatoria.
      */
 
-    public function index()
-    {
-        $examCalls = ExamCalls::with(['examCallStatus', 'examStudents', 'town'])->orderBy('exam_date', 'desc')->orderBy('start_time', 'desc')->get();
-        return response()->json($examCalls);
-    }
+   public function index()
+{
+    $examCalls = ExamCalls::with([
+        'examCallStatus',
+        'town',
+        'examStudents.student.user',
+        'examStudents.teacher.user',
+        'examStudents.vehicle'
+    ])
+    ->orderBy('exam_date', 'desc')
+    ->orderBy('start_time', 'desc')
+    ->get();
+
+    return response()->json($examCalls);
+}
 
     /**
      * Devuelve una lista de los estudiantes asociados a una convocatoria de examen específica, 
