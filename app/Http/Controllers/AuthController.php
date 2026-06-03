@@ -8,6 +8,8 @@ use App\Models\User;
 use App\Models\StudentProfile;
 use App\Models\TeacherProfile;
 use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\WelcomeNotificationMail;
 
 class AuthController extends Controller
 {
@@ -33,24 +35,31 @@ class AuthController extends Controller
     ]);
 
     // Crear usuario SOLO alumno
-    $user = User::create([
-        'email'     => $validated['email'],
-        'password'  => Hash::make($validated['password']),
-        'name'      => $validated['name'],
-        'surname1'  => $validated['surname1'],
-        'surname2'  => $validated['surname2'],
-        'phone'     => $validated['phone'],
-        'role_id'   => 3,
-    ]);
+   // Crear usuario SOLO alumno
+$user = User::create([
+    'email'     => $validated['email'],
+    'password'  => Hash::make($validated['password']),
+    'name'      => $validated['name'],
+    'surname1'  => $validated['surname1'],
+    'surname2'  => $validated['surname2'],
+    'phone'     => $validated['phone'],
+    'role_id'   => 3,
+]);
 
-    // Crear perfil de alumno
-    $student = StudentProfile::create([
-        'user_id'      => $user->id,
-        'town_id'   => $validated['town_id'], // ← NUEVO
-        'dni'          => $validated['dni'] ?? null,
-        'birth_date'   => $validated['date_of_birth'] ?? null,
-        'pickup_notes' => $validated['pickup_notes'] ?? null,
-    ]);
+// Crear perfil de alumno
+$student = StudentProfile::create([
+    'user_id'      => $user->id,
+    'town_id'      => $validated['town_id'],
+    'dni'          => $validated['dni'] ?? null,
+    'birth_date'   => $validated['date_of_birth'] ?? null,
+    'pickup_notes' => $validated['pickup_notes'] ?? null,
+]);
+
+// 🔔 Notificación de bienvenida al alumno
+Mail::to($user->email)
+    ->send(new WelcomeNotificationMail($student));
+
+
 
     return response()->json([
         'message' => 'Alumno registrado correctamente',

@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\ReserveNotificationMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use App\Models\PaymentIntent;
 use App\Models\ClassSession;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Mail;
 
 class PaymentController extends Controller
 {
@@ -58,6 +60,23 @@ class PaymentController extends Controller
             $intent->classSession->update([
                 'payment_status' => 'paid'
             ]);
+
+            $session = $intent->classSession;
+
+Mail::to($session->studentProfile->user->email)
+    ->send(new ReserveNotificationMail(
+        $session->studentProfile,
+        $session,
+        $session->teacherProfile,
+        $session->vehicle,
+        $session->session_date,
+        $session->start_time,
+        $session->end_time,
+        "tarjeta",
+        "pagado",
+        $session->price
+    ));
+
 
             return response()->json([
                 'message' => 'Pago confirmado',
@@ -214,6 +233,21 @@ class PaymentController extends Controller
         $session->update([
             'payment_status' => 'paid'
         ]);
+
+        Mail::to($session->studentProfile->user->email)
+    ->send(new ReserveNotificationMail(
+        $session->studentProfile,
+        $session,
+        $session->teacherProfile,
+        $session->vehicle,
+        $session->session_date,
+        $session->start_time,
+        $session->end_time,
+        "monedero",
+        "pagado",
+        $session->price
+    ));
+
 
         return response()->json([
             'message' => 'Pago realizado con monedero',
