@@ -6,6 +6,16 @@ use App\Models\ExamCalls;
 use App\Models\ExamStudents;
 use App\Models\StudentSkillEvaluations;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\AnadirConvocatoriaNotificationMail;
+use App\Mail\AnadirConvocatoriaStudentNotificationMail;
+use App\Mail\QuitarConvocatoriaStudentNotificationMail;
+use App\Mail\AddedToConvocationMail;
+use App\Mail\CancelConvocatoriaNotificationMail;
+use App\Mail\ConfirmConvocatoriaStudentMailable;
+use App\Mail\FinishConvocatoriaNotificationMail;
+use App\Mail\QuitarConvocatoriaNotificationMail;
+use App\Mail\ResultConvocatoriaNotificationMail;
 
 class ExamCallsController extends Controller
 {
@@ -164,6 +174,20 @@ class ExamCallsController extends Controller
         ]);
     }
 
+// Notificación al profesor
+$teacherEmail = $examCall->examStudents->first()->teacher->user->email;
+
+Mail::to($teacherEmail)
+    ->send(new AnadirConvocatoriaNotificationMail($examCall));
+
+// Notificación a cada alumno
+foreach ($examCall->examStudents as $examStudent) {
+    Mail::to($examStudent->student->user->email)
+        ->send(new AnadirConvocatoriaNotificationMail($examCall));
+}
+
+
+
     return response()->json([
         'message' => 'Convocatoria creada correctamente',
         'exam_call' => $examCall->load(['examCallStatus', 'examStudents'])
@@ -268,6 +292,20 @@ class ExamCallsController extends Controller
                 ExamStudents::where('exam_call_id', $examCall->id)
                     ->where('student_id', $studentId)
                     ->delete();
+                
+                $examStudent = ExamStudents::where('exam_call_id', $examCall->id)
+    ->where('student_id', $studentId)
+    ->first();
+
+Mail::to($examStudent->student->user->email)
+    ->send(new QuitarConvocatoriaStudentNotificationMail(
+        $examCall,
+        $examStudent,
+        $examStudent->student,
+        $examCall->exam_date,
+        "Eliminado de la convocatoria"
+    ));
+
             }
         }
 
@@ -284,6 +322,23 @@ class ExamCallsController extends Controller
                 'student_confirmed' => false,
                 'student_confirmed_at' => null,
             ]);
+            $examStudent = ExamStudents::where('exam_call_id', $examCall->id)
+    ->where('student_id', $studentId)
+    ->first();
+
+Mail::to($examStudent->student->user->email)
+    ->send(new AnadirConvocatoriaStudentNotificationMail(
+        $examCall,
+        $examStudent,
+        $examStudent->student,
+        $examCall->exam_date,
+        $examCall->examCallStatus->name,
+        $examStudent->examResultStatus->label,
+        $examCall->town,
+        $examStudent->teacher,
+        $examStudent->vehicle
+    ));
+
         }
     }
 
@@ -314,6 +369,15 @@ class ExamCallsController extends Controller
         ]);
         $examCall = ExamCalls::findOrFail($id);
         $examCall->update(['exam_call_status_id' => 2, 'result_notes' => $request->result_notes]);
+        $teacherEmail = $examCall->examStudents->first()->teacher->user->email;
+
+Mail::to($teacherEmail)->send(new FinishConvocatoriaNotificationMail($examCall));
+
+foreach ($examCall->examStudents as $examStudent) {
+    Mail::to($examStudent->student->user->email)
+        ->send(new FinishConvocatoriaNotificationMail($examCall));
+}
+
         return response()->json([
             'message' => 'Convocatoria completada correctamente',
             'exam_call' => $examCall->load(['examCallStatus', 'examStudents'])
@@ -328,6 +392,30 @@ class ExamCallsController extends Controller
     {
         $examCall = ExamCalls::findOrFail($id);
         $examCall->update(['exam_call_status_id' => 3]);
+        $teacherEmail = $examCall->examStudents->first()->teacher->user->email;
+
+Mail::to($teacherEmail)
+    ->send(new CancelConvocatoriaNotificationMail(
+        $examCall,
+        "Cancelada por motivos climatológicos",
+        $examCall->town,
+        $examCall->exam_date,
+        $examCall->examStudents->first()->teacher,
+        $examCall->examStudents->first()->vehicle
+    ));
+
+foreach ($examCall->examStudents as $examStudent) {
+    Mail::to($examStudent->student->user->email)
+        ->send(new CancelConvocatoriaNotificationMail(
+            $examCall,
+            "Cancelada por motivos climatológicos",
+            $examCall->town,
+            $examCall->exam_date,
+            $examStudent->teacher,
+            $examStudent->vehicle
+        ));
+}
+
         return response()->json([
             'message' => 'Convocatoria cancelada correctamente',
             'exam_call' => $examCall->load(['examCallStatus', 'examStudents'])
@@ -352,6 +440,8 @@ class ExamCallsController extends Controller
             ->where('student_id', $studentId)
             ->firstOrFail();
 
+        $examCall = $examStudent->examCall;
+
         // 🔥 Validar que el profesor autenticado es el profesor asignado
         if ($examStudent->teacher_id !== $teacher->id) {
             return response()->json([
@@ -364,6 +454,19 @@ class ExamCallsController extends Controller
             'exam_result_status_id' => $request->exam_result_status_id,
             'result_notes' => $request->result_notes,
         ]);
+
+        Mail::to($examStudent->student->user->email)
+    ->send(new ResultConvocatoriaNotificationMail(
+        $examCall,
+        $examStudent,
+        $examStudent->student,
+        $examCall->exam_date,
+        $examStudent->teacher,
+        $examStudent->vehicle,
+        $examStudent->examResultStatus->label,
+        $examStudent->result_notes
+    ));
+
 
         return response()->json([
             'message' => 'Resultado del estudiante actualizado correctamente',
@@ -558,6 +661,14 @@ class ExamCallsController extends Controller
         ]);
     }
 
+    Mail::to($examStudent->teacher->user->email)
+    ->send(new ConfirmConvocatoriaStudentMailable(
+        $examStudent->student,
+        $examStudent,
+        $examCall
+    ));
+
+
     return response()->json([
         'message' => 'Asistencia confirmada correctamente',
         'exam_student' => $examStudent->load(['examCall', 'examResultStatus'])
@@ -640,6 +751,16 @@ public function destroy($id)
     ExamStudents::where('exam_call_id', $examCall->id)->delete();
     // Eliminar convocatoria
     $examCall->delete();
+
+    $teacherEmail = $examCall->examStudents->first()->teacher->user->email;
+
+Mail::to($teacherEmail)->send(new QuitarConvocatoriaNotificationMail($examCall));
+
+foreach ($examCall->examStudents as $examStudent) {
+    Mail::to($examStudent->student->user->email)
+        ->send(new QuitarConvocatoriaNotificationMail($examCall));
+}
+
     return response()->json([
         'message' => 'Convocatoria eliminada correctamente'
     ]);

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\SummaryClassNotificationMail;
 use Illuminate\Http\Request;
 use App\Models\ClassSession;
 use App\Models\TeacherProfile;
@@ -17,6 +18,7 @@ use App\Models\DrivingSkills;
 use App\Models\StudentSkillEvaluations;
 use App\Models\StudentSkillsEvaluation;
 use App\Models\StudentSkillsEvaluations;
+use Illuminate\Support\Facades\Mail;
 
 class ClassSessionController extends Controller
 {
@@ -483,6 +485,39 @@ class ClassSessionController extends Controller
                 'score' => $skill['score'],
             ]);
         }
+
+        Mail::to($session->studentProfile->user->email)
+    ->send(new SummaryClassNotificationMail(
+        $session,
+        $session->teacherProfile,
+        $session->vehicle,
+        $session->studentProfile,
+        $session->session_date,
+        $session->start_time,
+        $session->end_time,
+        $evaluation->skillEvaluations,
+        $evaluation->skillEvaluations->pluck('drivingSkill'),
+        $evaluation->score,
+        $evaluation->ready_for_exam,
+        $evaluation->notes
+    ));
+
+Mail::to($session->teacherProfile->user->email)
+    ->send(new SummaryClassNotificationMail(
+        $session,
+        $session->teacherProfile,
+        $session->vehicle,
+        $session->studentProfile,
+        $session->session_date,
+        $session->start_time,
+        $session->end_time,
+        $evaluation->skillEvaluations,
+        $evaluation->skillEvaluations->pluck('drivingSkill'),
+        $evaluation->score,
+        $evaluation->ready_for_exam,
+        $evaluation->notes
+    ));
+
 
             return response()->json([
                 'message' => 'Clase marcada como completada',
