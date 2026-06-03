@@ -119,7 +119,7 @@ class ExamCallsController extends Controller
         'exam_call_status_id' => 'required|exists:exam_call_status,id',
         'teacher_id' => 'required|exists:teacher_profiles,id',
         'vehicle_id' => 'required|exists:vehicles,id',
-        'students' => 'required|array',
+        'students' => 'nullable|array',
         'students.*' => 'exists:student_profiles,id',
         'notes' => 'nullable|string',
         'max_students' => 'nullable|integer|min:1',
