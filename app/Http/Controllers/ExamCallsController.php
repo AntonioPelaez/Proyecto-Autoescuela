@@ -742,29 +742,42 @@ foreach ($examCall->examStudents as $examStudent) {
 public function destroy($id)
 {
     $examCall = ExamCalls::findOrFail($id);
+
     if ($examCall->exam_call_status_id == 2) {
         return response()->json([
             'message' => 'No se puede eliminar una convocatoria que ya está completada.'
         ], 400);
     }
-    // Eliminar registros asociados en exam_students
+
+    // 🔥 Guardar datos ANTES de borrar
+    $examStudents = $examCall->examStudents; // colección completa
+    $first = $examStudents->first(); // primer registro
+
+    $teacher = $first?->teacher; // puede ser null
+    $teacherEmail = $teacher?->user?->email;
+
+    // 🔥 Borrar exam_students
     ExamStudents::where('exam_call_id', $examCall->id)->delete();
-    // Eliminar convocatoria
+
+    // 🔥 Borrar convocatoria
     $examCall->delete();
 
-    $teacherEmail = $examCall->examStudents->first()->teacher->user->email;
+    // 🔥 Enviar email al profesor (si existe)
+    if ($teacherEmail) {
+        Mail::to($teacherEmail)->send(new QuitarConvocatoriaNotificationMail($examCall));
+    }
 
-Mail::to($teacherEmail)->send(new QuitarConvocatoriaNotificationMail($examCall));
-
-foreach ($examCall->examStudents as $examStudent) {
-    Mail::to($examStudent->student->user->email)
-        ->send(new QuitarConvocatoriaNotificationMail($examCall));
-}
+    // 🔥 Enviar email a cada alumno
+    foreach ($examStudents as $examStudent) {
+        $email = $examStudent->student->user->email;
+        Mail::to($email)->send(new QuitarConvocatoriaNotificationMail($examCall));
+    }
 
     return response()->json([
         'message' => 'Convocatoria eliminada correctamente'
     ]);
 }
+
 /**
  * Función que permite a un profesor aprobar a un estudiante específico en una convocatoria de examen,
  * actualizando el estado de aprobación del estudiante y la fecha y hora de aprobación.
