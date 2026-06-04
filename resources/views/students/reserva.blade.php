@@ -6,12 +6,12 @@ Hola {{ $student->user->name }},
 Tu reserva de clase ha sido confirmada. Aquí tienes el resumen completo:
 
 @component('mail::panel')
-**Fecha:** {{ $sessionDate }}  
+**Fecha:** {{ \Carbon\Carbon::parse($sessionDate)->format('d/m/Y') }}  
 **Hora de inicio:** {{ $startTime }}  
 **Hora de fin:** {{ $endTime }}  
 **Ciudad:** {{ $session->town->name }}  
 **Profesor:** {{ $teacher->user->name }}  
-**Vehículo:** {{ $vehicle->brand }} {{ $vehicle->model }} ({{ $vehicle->plate }})  
+**Vehículo:** {{ $vehicle->brand }} {{ $vehicle->model }} ({{ $vehicle->plate_number }})  
 @endcomponent
 
 ## Información del pago

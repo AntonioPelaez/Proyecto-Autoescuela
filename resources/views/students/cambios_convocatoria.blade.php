@@ -9,7 +9,7 @@ Se han realizado modificaciones en tu convocatoria. A continuación puedes ver l
 **Fecha del examen:** {{ $startDate }}  
 **Ciudad:** {{ $town->name }}  
 **Profesor:** {{ $teacher->user->name }}  
-**Vehículo:** {{ $vehicle->brand }} {{ $vehicle->model }} ({{ $vehicle->plate }})  
+**Vehículo:** {{ $vehicle->brand }} {{ $vehicle->model }} ({{ $vehicle->plate_number }})  
 **Estado actual:** {{ $examCall->examCallStatus->name }}
 @endcomponent
 

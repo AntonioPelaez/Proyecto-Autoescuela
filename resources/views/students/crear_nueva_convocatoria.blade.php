@@ -5,11 +5,11 @@ Se ha creado una nueva convocatoria de examen práctico.
 Aquí tienes toda la información importante:
 
 @component('mail::panel')
-**Fecha:** {{ $date }}  
+**Fecha:** {{ \Carbon\Carbon::parse($date)->format('d/m/Y') }}  
 **Hora:** {{ $time }}  
 **Ciudad:** {{ $town->name }}  
 **Profesor:** {{ $teacher->user->name }}  
-**Vehículo:** {{ $vehicle->brand }} {{ $vehicle->model }} ({{ $vehicle->plate }})  
+**Vehículo:** {{ $vehicle->brand }} {{ $vehicle->model }} ({{ $vehicle->plate_number }})  
 **Estado de la convocatoria:** {{ $status }}
 @endcomponent
 

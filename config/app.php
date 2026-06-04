@@ -54,6 +54,9 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    'frontend_url' => env('FRONTEND_URL', 'http://autoescuela_aibe_frontend.test'),
+
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone

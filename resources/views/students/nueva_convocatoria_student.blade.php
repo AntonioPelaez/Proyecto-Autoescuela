@@ -3,12 +3,13 @@
 Hola {{ $student->user->name }},
 Se ha añadido una nueva convocatoria de examen práctico a tu perfil. A continuación tienes toda la información importante:
 @component('mail::panel')
-**Fecha:** {{ $startDate }}
+**Fecha:** {{\Carbon\Carbon::parse($startDate)->format('d/m/Y') }}
 **Hora:** {{ $examCall->start_time }}
 **Ciudad:** {{ $town->name }}
 **Profesor:** {{ $teacher->user->name }}
-**Vehículo:** {{ $vehicle->brand }} {{ $vehicle->model }} ({{ $vehicle->plate }})
+**Vehículo:** {{ $vehicle->brand }} {{ $vehicle->model }} ({{ $vehicle->plate_number }})
 **Estado de confirmación del profesor:** {{ $status }}
 **Estado de confirmación del estudiante:** {{ $status_student }}
 @endcomponent
+
 @endcomponent
