@@ -287,26 +287,26 @@ foreach ($examCall->examStudents as $examStudent) {
         if (!empty($toDelete)) {
 
             foreach ($toDelete as $studentId) {
-                
-                // Finalmente borrar exam_students
-                ExamStudents::where('exam_call_id', $examCall->id)
-                    ->where('student_id', $studentId)
-                    ->delete();
-                
-                $examStudent = ExamStudents::where('exam_call_id', $examCall->id)
-    ->where('student_id', $studentId)
-    ->first();
 
-Mail::to($examStudent->student->user->email)
-    ->send(new QuitarConvocatoriaStudentNotificationMail(
-        $examCall,
-        $examStudent,
-        $examStudent->student,
-        $examCall->exam_date,
-        "Eliminado de la convocatoria"
-    ));
+    // Obtener examStudent ANTES de borrar
+    $examStudent = ExamStudents::where('exam_call_id', $examCall->id)
+        ->where('student_id', $studentId)
+        ->first();
 
-            }
+    // Enviar email al alumno
+    Mail::to($examStudent->student->user->email)
+        ->send(new QuitarConvocatoriaStudentNotificationMail(
+            $examCall,
+            $examStudent,
+            $examStudent->student,
+            $examCall->exam_date,
+            "Eliminado de la convocatoria"
+        ));
+
+    // Ahora sí borrar
+    $examStudent->delete();
+}
+
         }
 
         // ---------------------------------------------------------
@@ -627,13 +627,16 @@ foreach ($examCall->examStudents as $examStudent) {
      * Función que permite a un estudiante confirmar su asistencia a una convocatoria de examen específica, 
      * actualizando el estado de confirmación del estudiante y la fecha y hora de confirmación.
      */
-    public function confirmAttendance(Request $request, $examCallId, $studentId)
+   public function confirmAttendance(Request $request, $examCallId, $studentId)
 {
     if (auth()->user()->studentProfile->id != $studentId) {
         return response()->json([
             'message' => 'No tienes permiso para confirmar la asistencia de este estudiante.'
         ], 403);
     }
+
+    // 🔥 Obtener SIEMPRE la convocatoria
+    $examCall = ExamCalls::findOrFail($examCallId);
 
     // Buscar registro existente
     $examStudent = ExamStudents::where('exam_call_id', $examCallId)
@@ -642,8 +645,6 @@ foreach ($examCall->examStudents as $examStudent) {
 
     // 🔥 Si NO existe → crearlo
     if (!$examStudent) {
-        $examCall = ExamCalls::findOrFail($examCallId);
-
         $examStudent = ExamStudents::create([
             'exam_call_id' => $examCallId,
             'student_id' => $studentId,
@@ -661,19 +662,20 @@ foreach ($examCall->examStudents as $examStudent) {
         ]);
     }
 
+    // 🔥 Ahora SÍ existe $examCall siempre
     Mail::to($examStudent->teacher->user->email)
-    ->send(new ConfirmConvocatoriaStudentMailable(
-        $examStudent->student,
-        $examStudent,
-        $examCall
-    ));
-
+        ->send(new ConfirmConvocatoriaStudentMailable(
+            $examStudent->student,
+            $examStudent,
+            $examCall
+        ));
 
     return response()->json([
         'message' => 'Asistencia confirmada correctamente',
         'exam_student' => $examStudent->load(['examCall', 'examResultStatus'])
     ]);
 }
+
 
     /**
      * Función que permite a un estudiante desconfirmar su asistencia a una convocatoria de examen específica, 
@@ -883,21 +885,37 @@ public function removeApprovedStudent(Request $request, $examCallId, $studentId)
         ], 403);
     }
 
-    // 🔥 NO BORRAR — solo marcar como no presentado
+    $examCall = $examStudent->examCall;
+
+    // 🔥 Guardar motivo real
+    $motive = $request->result_notes ?? 'Sin motivo especificado';
+
+    // 🔥 Actualizar estado
     $examStudent->update([
         'exam_result_status_id' => 4, // No presentado
-        'result_notes' => $request->result_notes ?? null,
+        'result_notes' => $motive,
         'student_confirmed' => false,
         'student_confirmed_at' => null,
         'teacher_approved' => false,
         'teacher_approved_at' => null,
     ]);
 
+    // 🔥 Enviar email al alumno con el motivo REAL
+    Mail::to($examStudent->student->user->email)
+        ->send(new QuitarConvocatoriaStudentNotificationMail(
+            $examCall,
+            $examStudent,
+            $examStudent->student,
+            $examCall->exam_date,
+            $motive
+        ));
+
     return response()->json([
         'message' => 'Estado actualizado correctamente',
         'remaining_seats' => $this->getRemainingSeats($examCallId)
     ]);
 }
+
 
 /**
  * Generar un listado de estudiantes pendientes de aprobación por el profesor
@@ -986,8 +1004,11 @@ public function addApprovedStudent(Request $request, $examCallId, $studentId)
         ->where('student_id', $studentId)
         ->first();
 
+    $examCall = ExamCalls::findOrFail($examCallId);
+
+    // Si ya existe → actualizar
     if ($examStudent) {
-        // Ya existe → solo actualizar
+
         $examStudent->update([
             'teacher_approved' => true,
             'teacher_approved_at' => now(),
@@ -996,6 +1017,20 @@ public function addApprovedStudent(Request $request, $examCallId, $studentId)
             'student_confirmed_at' => null,
         ]);
 
+        // 🔥 Enviar email al alumno
+        Mail::to($examStudent->student->user->email)
+            ->send(new AnadirConvocatoriaStudentNotificationMail(
+                $examCall,
+                $examStudent,
+                $examStudent->student,
+                $examCall->exam_date,
+                $examCall->examCallStatus->name,
+                $examStudent->examResultStatus->label,
+                $examCall->town,
+                $examStudent->teacher,
+                $examStudent->vehicle
+            ));
+
         return response()->json([
             'message' => 'Alumno aprobado correctamente (actualizado)',
             'exam_student' => $examStudent
@@ -1003,8 +1038,6 @@ public function addApprovedStudent(Request $request, $examCallId, $studentId)
     }
 
     // Si NO existe → crearlo
-    $examCall = ExamCalls::findOrFail($examCallId);
-
     $examStudent = ExamStudents::create([
         'exam_call_id' => $examCallId,
         'student_id' => $studentId,
@@ -1017,10 +1050,25 @@ public function addApprovedStudent(Request $request, $examCallId, $studentId)
         'student_confirmed_at' => null,
     ]);
 
+    // 🔥 Enviar email al alumno
+    Mail::to($examStudent->student->user->email)
+        ->send(new AnadirConvocatoriaStudentNotificationMail(
+            $examCall,
+            $examStudent,
+            $examStudent->student,
+            $examCall->exam_date,
+            $examCall->examCallStatus->name,
+            $examStudent->examResultStatus->label,
+            $examCall->town,
+            $examStudent->teacher,
+            $examStudent->vehicle
+        ));
+
     return response()->json([
         'message' => 'Alumno añadido y aprobado correctamente',
         'exam_student' => $examStudent
     ]);
 }
+
 
 }

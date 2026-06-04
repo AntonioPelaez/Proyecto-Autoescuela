@@ -9,7 +9,7 @@ El estudiante **{{ $student->user->name }} {{ $student->user->surname1 }} {{ $st
 **Fecha:** {{ $examCall->exam_date }}  
 **Hora:** {{ $examCall->start_time }}  
 **Ciudad:** {{ $examCall->town->name }}  
-**Vehículo asignado:** {{ $examStudent->vehicle->brand }} {{ $examStudent->vehicle->model }} ({{ $examStudent->vehicle->plate }})  
+**Vehículo asignado:** {{ $examStudent->vehicle->brand }} {{ $examStudent->vehicle->model }} ({{ $examStudent->vehicle->plate_number }})  
 **Estado del estudiante:** Confirmado  
 @endcomponent
 

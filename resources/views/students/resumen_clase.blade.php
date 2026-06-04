@@ -3,12 +3,12 @@
 
 Hola {{ $student->user->name }},
 
-Aquí tienes el resumen completo de tu clase del día **{{ $sessionDate }}**.
+Aquí tienes el resumen completo de tu clase del día **{{ \Carbon\Carbon::parse($sessionDate)->format('d/m/Y') }}**.
 
 @component('mail::panel')
 **Ciudad:** {{ $session->town->name }}  
 **Profesor:** {{ $teacher->user->name }}  
-**Vehículo:** {{ $vehicle->brand }} {{ $vehicle->model }} ({{ $vehicle->plate }})  
+**Vehículo:** {{ $vehicle->brand }} {{ $vehicle->model }} ({{ $vehicle->plate_number }})  
 **Hora de inicio:** {{ $startTime }}  
 **Hora de fin:** {{ $endTime }}  
 **Nota total:** {{ $score }}  

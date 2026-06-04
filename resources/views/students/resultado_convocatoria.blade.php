@@ -3,13 +3,13 @@
 
 Hola {{ $student->user->name }},
 
-Tu convocatoria del día **{{ $startDate }}** ya tiene resultado. Aquí tienes toda la información:
+Tu convocatoria del día **{{ \Carbon\Carbon::parse($startDate)->format('d/m/Y') }}** ya tiene resultado. Aquí tienes toda la información:
 
 @component('mail::panel')
 **Ciudad:** {{ $examCall->town->name }}  
 **Profesor:** {{ $teacher->user->name }}  
-**Vehículo:** {{ $vehicle->brand }} {{ $vehicle->model }} ({{ $vehicle->plate }})  
-**Resultado:** {{ $status_result->name }}  
+**Vehículo:** {{ $vehicle->brand }} {{ $vehicle->model }} ({{ $vehicle->plate_number }})  
+**Resultado:** {{ $status_result }}  
 @endcomponent
 
 @if($notes)
