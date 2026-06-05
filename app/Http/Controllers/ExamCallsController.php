@@ -11,6 +11,7 @@ use App\Mail\AnadirConvocatoriaNotificationMail;
 use App\Mail\AnadirConvocatoriaStudentNotificationMail;
 use App\Mail\QuitarConvocatoriaStudentNotificationMail;
 use App\Mail\AddedToConvocationMail;
+use App\Mail\CancelarConvocatoriaEstudianteMailable;
 use App\Mail\CancelConvocatoriaNotificationMail;
 use App\Mail\ConfirmConvocatoriaStudentMailable;
 use App\Mail\FinishConvocatoriaNotificationMail;
@@ -682,32 +683,46 @@ foreach ($examCall->examStudents as $examStudent) {
      * actualizando el estado de confirmación del estudiante y la fecha y hora de confirmación a null.
      */
     public function unconfirmAttendance(Request $request, $examCallId, $studentId)
-    {
-        $examStudent = ExamStudents::where('exam_call_id', $examCallId)
-            ->where('student_id', $studentId)
-            ->firstOrFail();
+{
+    $examStudent = ExamStudents::where('exam_call_id', $examCallId)
+        ->where('student_id', $studentId)
+        ->firstOrFail();
 
-        if (auth()->user()->studentProfile->id != $studentId) {
-            return response()->json([
-                'message' => 'No tienes permiso para confirmar la asistencia de este estudiante.'
-            ], 403);
-        }
-
-
-        // Actualizar estado de confirmación
-        $examStudent->update([
-            'student_confirmed' => false,
-            'student_confirmed_at' => null,
-            'teacher_approved' => false,
-    'teacher_approved_at' => null,
-    'exam_result_status_id' => 4, // No presentado
-        ]);
-
+    if (auth()->user()->studentProfile->id != $studentId) {
         return response()->json([
-            'message' => 'Asistencia desconfirmada correctamente',
-            'exam_student' => $examStudent->load(['examCall', 'examResultStatus'])
-        ]);
+            'message' => 'No tienes permiso para confirmar la asistencia de este estudiante.'
+        ], 403);
     }
+
+    $motive = $request->motive ?? 'El estudiante no indicó un motivo.';
+
+    // Actualizar estado de confirmación + motivo (result_notes)
+    $examStudent->update([
+        'student_confirmed' => false,
+        'student_confirmed_at' => null,
+        'teacher_approved' => false,
+        'teacher_approved_at' => null,
+        'exam_result_status_id' => 4, // No presentado
+        'result_notes' => $motive,    // 🔥 Motivo actualizado
+    ]);
+
+    // Enviar email al profesor
+    $student = $examStudent->student;
+    $examCall = $examStudent->examCall;
+
+    Mail::to($examCall->teacher->user->email)
+        ->send(new CancelarConvocatoriaEstudianteMailable(
+            $student,
+            $examStudent,
+            $examCall,
+            $motive
+        ));
+
+    return response()->json([
+        'message' => 'Asistencia desconfirmada correctamente',
+        'exam_student' => $examStudent->load(['examCall', 'examResultStatus'])
+    ]);
+}
     /**
      * Historial de convocatorias para el alumno, sin tener duiplicados.
      */
