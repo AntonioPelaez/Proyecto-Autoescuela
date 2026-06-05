@@ -703,26 +703,28 @@ foreach ($examCall->examStudents as $examStudent) {
         'teacher_approved' => false,
         'teacher_approved_at' => null,
         'exam_result_status_id' => 4, // No presentado
-        'result_notes' => $motive,    // 🔥 Motivo actualizado
+        'result_notes' => $motive,
     ]);
 
-    // Enviar email al profesor
-    $student = $examStudent->student;
-    $examCall = $examStudent->examCall;
+    // 🔥 Obtener profesor SIEMPRE desde examStudent
+    $teacherEmail = $examStudent->teacher?->user?->email;
 
-    Mail::to($examCall->teacher->user->email)
-        ->send(new CancelarConvocatoriaEstudianteMailable(
-            $student,
-            $examStudent,
-            $examCall,
-            $motive
-        ));
+    if ($teacherEmail) {
+        Mail::to($teacherEmail)
+            ->send(new CancelarConvocatoriaEstudianteMailable(
+                $examStudent->student,
+                $examStudent,
+                $examStudent->examCall,
+                $motive
+            ));
+    }
 
     return response()->json([
         'message' => 'Asistencia desconfirmada correctamente',
         'exam_student' => $examStudent->load(['examCall', 'examResultStatus'])
     ]);
 }
+
     /**
      * Historial de convocatorias para el alumno, sin tener duiplicados.
      */
@@ -838,9 +840,13 @@ public function unapproveStudent(Request $request, $examCallId, $studentId)
     }
 
     $examStudent->update([
+        'student_confirmed'=> false,
+        'student_confirmed_at'=> null,
         'teacher_approved' => false,
         'teacher_approved_at' => null,
     ]);
+
+    $examStudent->delete();
 
     return response()->json([
         'message' => 'Estudiante desaprobado correctamente',
@@ -902,20 +908,10 @@ public function removeApprovedStudent(Request $request, $examCallId, $studentId)
 
     $examCall = $examStudent->examCall;
 
-    // 🔥 Guardar motivo real
+    // Motivo real
     $motive = $request->result_notes ?? 'Sin motivo especificado';
 
-    // 🔥 Actualizar estado
-    $examStudent->update([
-        'exam_result_status_id' => 4, // No presentado
-        'result_notes' => $motive,
-        'student_confirmed' => false,
-        'student_confirmed_at' => null,
-        'teacher_approved' => false,
-        'teacher_approved_at' => null,
-    ]);
-
-    // 🔥 Enviar email al alumno con el motivo REAL
+    // Enviar email ANTES de borrar
     Mail::to($examStudent->student->user->email)
         ->send(new QuitarConvocatoriaStudentNotificationMail(
             $examCall,
@@ -925,11 +921,15 @@ public function removeApprovedStudent(Request $request, $examCallId, $studentId)
             $motive
         ));
 
+    // 🔥 ELIMINAR al alumno de la convocatoria
+    $examStudent->delete();
+
     return response()->json([
-        'message' => 'Estado actualizado correctamente',
+        'message' => 'Alumno eliminado correctamente de la convocatoria',
         'remaining_seats' => $this->getRemainingSeats($examCallId)
     ]);
 }
+
 
 
 /**
@@ -938,37 +938,26 @@ public function removeApprovedStudent(Request $request, $examCallId, $studentId)
  */
 public function listPendingApprovalStudents($examCallId)
 {
-    $examCall = ExamCalls::findOrFail($examCallId);
+    $examCall = ExamCalls::with([
+        'examStudents.student.user',
+        'examStudents.teacher.user',
+        'examStudents.vehicle',
+        'examStudents.examResultStatus'
+    ])->findOrFail($examCallId);
 
-    $remaining = $this->getRemainingSeats($examCallId);
+    $inside = $examCall->examStudents;
 
-    // 1️⃣ Alumnos dentro (NO aprobados)
-    $pendingInside = ExamStudents::with([
-        'student.user',
-        'teacher.user',
-        'vehicle',
-        'examResultStatus'
-    ])
-    ->where('exam_call_id', $examCallId)
-->where('teacher_approved', false)
-->where('exam_result_status_id', 1) // 1 = pendiente
+    // 🔥 1. Alumnos dentro de la convocatoria pendientes de aceptar:
+    // - han confirmado asistencia
+    // - NO han sido aprobados por el profesor
+    $pendingInside = $inside->filter(function ($s) {
+        return $s->student_confirmed == true
+            && $s->teacher_approved == false;
+    })->values();
 
-    
-    ->get();
+    // 🔥 2. Alumnos aptos para examen que NO están en la convocatoria
+    $insideIds = $inside->pluck('student_id')->toArray();
 
-    // IDs dentro
-    $insideIds = $pendingInside->pluck('student_id')->toArray();
-
-    // 2️⃣ Si no hay plazas → NO mostrar alumnos fuera
-    if ($remaining !== null && $remaining <= 0) {
-        return response()->json([
-            'pending_inside' => $pendingInside,
-            'pending_outside' => [],
-            'remaining_seats' => 0
-        ]);
-    }
-
-    // 3️⃣ Alumnos aptos fuera
     $studentsReady = StudentSkillEvaluations::where('ready_for_exam', true)
         ->with('studentProfile.user')
         ->get()
@@ -976,19 +965,8 @@ public function listPendingApprovalStudents($examCallId)
         ->unique('id')
         ->values();
 
-    // ❗ EXCLUSIÓN CRÍTICA:
-    // - No incluir alumnos que YA están aprobados
-    // - No incluir alumnos que YA están dentro
-    $approvedIds = ExamStudents::where('exam_call_id', $examCallId)
-        ->where('teacher_approved', true)
-        ->pluck('student_id')
-        ->toArray();
-
     $pendingOutside = $studentsReady
-        ->filter(fn($s) =>
-            !in_array($s->id, $insideIds) &&
-            !in_array($s->id, $approvedIds)
-        )
+        ->filter(fn($s) => !in_array($s->id, $insideIds))
         ->map(function ($s) {
             return [
                 'id' => $s->id,
@@ -1002,12 +980,8 @@ public function listPendingApprovalStudents($examCallId)
     return response()->json([
         'pending_inside' => $pendingInside,
         'pending_outside' => $pendingOutside,
-        'remaining_seats' => $remaining
     ]);
 }
-
-
-
 /**
  * Función que permite a un profesor añadir a un estudiante específico a la lista de aprobados en una convocatoria de examen,
  * actualizando el estado de aprobación del estudiante y la fecha y hora de aprobación.
