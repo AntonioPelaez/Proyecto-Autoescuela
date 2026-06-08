@@ -40,8 +40,8 @@ class TeacherProfile extends Model
     {
         return $this->hasMany(StudentSkillEvaluations::class, 'teacher_profile_id');
     }
-    public function examStudents()
+    public function examCalls()
     {
-        return $this->hasMany(ExamStudents::class, 'teacher_id');
+        return $this->hasMany(ExamCalls::class, 'teacher_id');
     }
 }

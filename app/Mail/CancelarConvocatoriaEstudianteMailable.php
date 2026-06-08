@@ -9,18 +9,23 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
-class AnadirConvocatoriaNotificationMail extends Mailable
+class CancelarConvocatoriaEstudianteMailable extends Mailable
 {
     use Queueable, SerializesModels;
+    public $student;
+    public $examStudent;
     public $examCall;
-
+    public $motive;
 
     /**
      * Create a new message instance.
      */
-    public function __construct($examCall)
+    public function __construct($student, $examStudent, $examCall, $motive)
     {
+        $this->student = $student;
+        $this->examStudent = $examStudent;
         $this->examCall = $examCall;
+        $this->motive = $motive;
     }
 
     /**
@@ -29,7 +34,7 @@ class AnadirConvocatoriaNotificationMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Nueva convocatoria para todos los estudiantes',
+            subject: 'Cancelación de la convocatoria del estudiante'. $this->student->name,
         );
     }
 
@@ -39,20 +44,14 @@ class AnadirConvocatoriaNotificationMail extends Mailable
     public function content(): Content
     {
         return new Content(
-    markdown: 'students.crear_nueva_convocatoria',
-    with: [
-        'examCall' => $this->examCall,
-        'students' => $this->examCall->examStudents,
-        'teacher' => $this->examCall->teacher,
-        'vehicle' => $this->examCall->vehicle,
-        'town' => $this->examCall->town,
-        'date' => $this->examCall->exam_date,
-        'time' => $this->examCall->start_time,
-        'notes' => $this->examCall->notes,
-        'status' => $this->examCall->examCallStatus->name,
-    ]
-);
-
+            view: 'students.cancelar_convocatoria_estudiante',
+            with: [
+                'student' => $this->student,
+                'examStudent' => $this->examStudent,
+                'examCall' => $this->examCall,
+                'motive' => $this->motive,
+            ]
+        );
     }
 
     /**

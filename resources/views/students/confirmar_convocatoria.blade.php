@@ -1,15 +1,15 @@
 @component('mail::message')
 # Confirmación de asistencia del estudiante
 
-Hola {{ $examStudent->teacher->user->name }},
+Hola {{ $examCall->teacher->user->name }},
 
 El estudiante **{{ $student->user->name }} {{ $student->user->surname1 }} {{ $student->user->surname2 }}** ha confirmado su asistencia a la convocatoria.
 
 @component('mail::panel')
-**Fecha:** {{ $examCall->exam_date }}  
+**Fecha:** {{\Carbon\Carbon::parse($examCall->exam_date)->format('d/m/Y') }}  
 **Hora:** {{ $examCall->start_time }}  
 **Ciudad:** {{ $examCall->town->name }}  
-**Vehículo asignado:** {{ $examStudent->vehicle->brand }} {{ $examStudent->vehicle->model }} ({{ $examStudent->vehicle->plate_number }})  
+**Vehículo asignado:** {{ $examCall->vehicle->brand }} {{ $examCall->vehicle->model }} ({{ $examCall->vehicle->plate_number }})  
 **Estado del estudiante:** Confirmado  
 @endcomponent
 
