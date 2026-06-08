@@ -14,6 +14,8 @@ return new class extends Migration
         Schema::create('exam_calls', function (Blueprint $table) {
             $table->id();
             $table->foreignId('town_id')->constrained('towns')->onDelete('cascade');
+            $table->foreignId('teacher_id')->constrained('teacher_profiles')->onDelete('cascade');
+            $table->foreignId('vehicle_id')->constrained('vehicles')->onDelete('cascade');
             $table->date('exam_date');
             $table->time('start_time');
             $table->foreignId('exam_call_status_id')->constrained('exam_call_status')->onDelete('cascade');

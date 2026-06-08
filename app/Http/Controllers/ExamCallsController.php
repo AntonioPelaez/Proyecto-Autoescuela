@@ -27,17 +27,18 @@ class ExamCallsController extends Controller
    public function index()
 {
     $examCalls = ExamCalls::with([
-        'examCallStatus',
-        'town',
-        'examStudents.student.user',
-        'examStudents.teacher.user',
-        'examStudents.vehicle'
-    ])
-    ->orderBy('exam_date', 'desc')
-    ->orderBy('start_time', 'desc')
-    ->get();
+            'examCallStatus',
+            'town',
+            'teacher.user',
+            'vehicle',
+            'examStudents.student.user',
+            'examStudents.examResultStatus'
+        ])
+        ->orderBy('exam_date', 'desc')
+        ->orderBy('start_time', 'desc')
+        ->get();
 
-    return response()->json($examCalls);
+        return response()->json($examCalls);
 }
 
     /**
@@ -46,30 +47,25 @@ class ExamCallsController extends Controller
      */
 
     public function listadoEstudiantes($id)
-{
-    $examCall = ExamCalls::with([
-        'examStudents.student.user',
-        'examStudents.teacher.user',
-        'examStudents.vehicle',
-        'examStudents.examResultStatus'
-    ])->findOrFail($id);
+    {
+        $examCall = ExamCalls::with([
+            'examStudents.student.user',
+            'examStudents.examResultStatus'
+        ])->findOrFail($id);
 
-    // 🔥 Asegurar que devolvemos teacher_approved y teacher_approved_at
-    $students = $examCall->examStudents->map(function ($s) {
-        return [
-            'student_id' => $s->student_id,
-            'student' => $s->student,
-            'teacher' => $s->teacher,
-            'vehicle' => $s->vehicle,
-            'exam_result_status' => $s->examResultStatus,
-            'result_notes' => $s->result_notes,
-            'student_confirmed' => $s->student_confirmed,
-            'student_confirmed_at' => $s->student_confirmed_at,
-        ];
-    });
+        $students = $examCall->examStudents->map(function ($s) {
+            return [
+                'student_id' => $s->student_id,
+                'student' => $s->student,
+                'exam_result_status' => $s->examResultStatus,
+                'result_notes' => $s->result_notes,
+                'student_confirmed' => $s->student_confirmed,
+                'student_confirmed_at' => $s->student_confirmed_at,
+            ];
+        });
 
-    return response()->json($students);
-}
+        return response()->json($students);
+    }
 
 
 
@@ -80,24 +76,21 @@ class ExamCallsController extends Controller
     {
         $examCall = ExamCalls::with([
             'town',
+            'teacher.user',
+            'vehicle',
             'examCallStatus',
             'examStudents.student.user',
-            'examStudents.teacher.user',
-            'examStudents.vehicle',
             'examStudents.examResultStatus'
         ])->findOrFail($id);
-
-        // Obtener profesor y vehículo desde el primer alumno
-        $first = $examCall->examStudents->first();
 
         return response()->json([
             'id' => $examCall->id,
             'exam_date' => $examCall->exam_date,
             'start_time' => $examCall->start_time,
             'town_id' => $examCall->town_id,
-            'town' => $examCall->town, // 🔥 AÑADIDO
-            'teacher_id' => $first?->teacher_id,
-            'vehicle_id' => $first?->vehicle_id,
+            'town' => $examCall->town,
+            'teacher_id' => $examCall->teacher_id,
+            'vehicle_id' => $examCall->vehicle_id,
             'notes' => $examCall->notes,
             'max_students' => $examCall->max_students,
             'exam_call_status' => $examCall->examCallStatus,
@@ -110,88 +103,71 @@ class ExamCallsController extends Controller
      */
 
     public function store(Request $request)
-{
-    $examcall = $request->validate([
-        'town_id' => 'required|exists:towns,id',
-        'exam_date' => 'required|date',
-        'start_time' => 'required',
-        'exam_call_status_id' => 'required|exists:exam_call_status,id',
-        'teacher_id' => 'required|exists:teacher_profiles,id',
-        'vehicle_id' => 'required|exists:vehicles,id',
-        'students' => 'nullable|array',
-        'students.*' => 'exists:student_profiles,id',
-        'notes' => 'nullable|string',
-        'max_students' => 'nullable|integer|min:1',
-    ]);
-
-    // 1. Validar que todos los alumnos están aptos
-    $studentsReady = StudentSkillEvaluations::whereIn('student_profile_id', $examcall['students'])
-        ->where('ready_for_exam', 1)
-        ->pluck('student_profile_id')
-        ->unique()
-        ->toArray();
-
-    if (count($studentsReady) !== count($examcall['students'])) {
-        return response()->json([
-            'message' => 'Uno o más estudiantes NO están preparados para el examen.'
-        ], 400);
-    }
-
-    // 2. Evitar duplicados SOLO con campos existentes
-    $exists = ExamCalls::where('exam_date', $examcall['exam_date'])
-        ->where('start_time', $examcall['start_time'])
-        ->where('town_id', $examcall['town_id'])
-        ->exists();
-
-    if ($exists) {
-        return response()->json([
-            'message' => 'Ya existe una convocatoria con esa fecha, hora y localidad.'
-        ], 400);
-    }
-
-    // 3. Crear convocatoria
-    $examCall = ExamCalls::create([
-        'town_id' => $examcall['town_id'],
-        'exam_date' => $examcall['exam_date'],
-        'start_time' => $examcall['start_time'],
-        'exam_call_status_id' => $examcall['exam_call_status_id'],
-        'notes' => $examcall['notes'] ?? null,
-        'max_students' => $examcall['max_students'] ?? null,
-    ]);
-
-    // 4. Insertar alumnos en exam_students
-    foreach ($examcall['students'] as $studentId) {
-        ExamStudents::create([
-            'exam_call_id' => $examCall->id,
-            'student_id' => $studentId,
-            'teacher_id' => $examcall['teacher_id'],
-            'vehicle_id' => $examcall['vehicle_id'],
-            'exam_result_status_id' => 1,
-            'result_notes' => null,
-            'student_confirmed' => false,
-            'student_confirmed_at' => null,
+    {
+        $examcall = $request->validate([
+            'town_id' => 'required|exists:towns,id',
+            'exam_date' => 'required|date',
+            'start_time' => 'required',
+            'exam_call_status_id' => 'required|exists:exam_call_status,id',
+            'teacher_id' => 'required|exists:teacher_profiles,id',
+            'vehicle_id' => 'required|exists:vehicles,id',
+            'students' => 'nullable|array',
+            'students.*' => 'exists:student_profiles,id',
+            'notes' => 'nullable|string',
+            'max_students' => 'nullable|integer|min:1',
         ]);
-    }
 
-// Notificación al profesor
-$teacherEmail = $examCall->examStudents->first()->teacher->user->email;
+        $exists = ExamCalls::where('exam_date', $examcall['exam_date'])
+            ->where('start_time', $examcall['start_time'])
+            ->where('town_id', $examcall['town_id'])
+            ->exists();
 
-Mail::to($teacherEmail)
-    ->send(new AnadirConvocatoriaNotificationMail($examCall));
+        if ($exists) {
+            return response()->json([
+                'message' => 'Ya existe una convocatoria con esa fecha, hora y localidad.'
+            ], 400);
+        }
 
-// Notificación a cada alumno
-foreach ($examCall->examStudents as $examStudent) {
-    Mail::to($examStudent->student->user->email)
+        $examCall = ExamCalls::create([
+            'town_id' => $examcall['town_id'],
+            'teacher_id' => $examcall['teacher_id'],   // 🔥 AÑADIDO
+            'vehicle_id' => $examcall['vehicle_id'],
+            'exam_date' => $examcall['exam_date'],
+            'start_time' => $examcall['start_time'],
+            'exam_call_status_id' => $examcall['exam_call_status_id'],
+            'notes' => $examcall['notes'] ?? null,
+            'max_students' => $examcall['max_students'] ?? null,
+        ]);
+
+        if (!empty($examcall['students'])) {
+            foreach ($examcall['students'] as $studentId) {
+                ExamStudents::create([
+                    'exam_call_id' => $examCall->id,
+                    'student_id' => $studentId,
+                    'exam_result_status_id' => 1,
+                    'student_confirmed' => true,
+                    'student_confirmed_at' => now(),
+                ]);
+            }
+        }
+
+        // 🔥 PROTECCIÓN: solo enviar email si hay alumnos
+        if ($examCall->teacher && $examCall->teacher->user) {
+    Mail::to($examCall->teacher->user->email)
         ->send(new AnadirConvocatoriaNotificationMail($examCall));
 }
 
 
+        foreach ($examCall->examStudents as $examStudent) {
+            Mail::to($examStudent->student->user->email)
+                ->send(new AnadirConvocatoriaNotificationMail($examCall));
+        }
 
-    return response()->json([
-        'message' => 'Convocatoria creada correctamente',
-        'exam_call' => $examCall->load(['examCallStatus', 'examStudents'])
-    ], 201);
-}
+        return response()->json([
+            'message' => 'Convocatoria creada correctamente',
+            'exam_call' => $examCall->load(['examCallStatus', 'examStudents'])
+        ], 201);
+    }
 
     /**
      * Método privado que selecciona estudiantes automáticamente para una convocatoria de examen 
@@ -232,150 +208,110 @@ foreach ($examCall->examStudents as $examStudent) {
      * Actualiza los detalles de una convocatoria de examen específica, incluyendo su estado, los estudiantes asociados, el profesor asignado y el vehículo utilizado.
      */
   public function update(Request $request, $id)
-{
-    $examCall = ExamCalls::findOrFail($id);
+    {
+        $examCall = ExamCalls::findOrFail($id);
 
-    // Validación
-    $data = $request->validate([
-        'town_id' => 'sometimes|exists:towns,id',
-        'exam_date' => 'sometimes|date',
-        'start_time' => 'sometimes',
-        'exam_call_status_id' => 'sometimes|exists:exam_call_status,id',
-        'teacher_id' => 'sometimes|exists:teacher_profiles,id',
-        'vehicle_id' => 'sometimes|exists:vehicles,id',
-        'notes' => 'nullable|string',
-        'students' => 'array',
-        'students.*' => 'exists:student_profiles,id',
-        'max_students' => 'sometimes|integer|min:1',
-    ]);
-
-    // ---------------------------------------------------------
-    // 🔥 1. Actualizar convocatoria
-    // ---------------------------------------------------------
-    $examCall->update($data);
-
-    // ---------------------------------------------------------
-    // 🔥 2. Actualizar profesor y vehículo en TODOS los exam_students
-    // ---------------------------------------------------------
-    ExamStudents::where('exam_call_id', $examCall->id)
-        ->update([
-            'teacher_id' => $data['teacher_id'] ?? $examCall->teacher_id,
-            'vehicle_id' => $data['vehicle_id'] ?? $examCall->vehicle_id,
+        $data = $request->validate([
+            'town_id' => 'sometimes|exists:towns,id',
+            'exam_date' => 'sometimes|date',
+            'start_time' => 'sometimes',
+            'exam_call_status_id' => 'sometimes|exists:exam_call_status,id',
+            'teacher_id' => 'sometimes|exists:teacher_profiles,id',
+            'vehicle_id' => 'sometimes|exists:vehicles,id',
+            'notes' => 'nullable|string',
+            'students' => 'array',
+            'students.*' => 'exists:student_profiles,id',
+            'max_students' => 'sometimes|integer|min:1',
         ]);
 
-    // ---------------------------------------------------------
-    // 🔥 3. Sincronizar alumnos
-    // ---------------------------------------------------------
-    if (isset($data['students'])) {
+        $examCall->update($data);
 
-        $existing = ExamStudents::where('exam_call_id', $examCall->id)
-            ->pluck('student_id')
-            ->toArray();
+        if (isset($data['students'])) {
 
-        $new = $data['students'];
+            $existing = ExamStudents::where('exam_call_id', $examCall->id)
+                ->pluck('student_id')
+                ->toArray();
 
-        // Alumnos a eliminar
-        $toDelete = array_diff($existing, $new);
+            $new = $data['students'];
 
-        // Alumnos a añadir
-        $toAdd = array_diff($new, $existing);
-
-        // ---------------------------------------------------------
-        // ❌ 3A. Eliminar alumnos que ya no están + sus datos asociados
-        // ---------------------------------------------------------
-        if (!empty($toDelete)) {
+            $toDelete = array_diff($existing, $new);
+            $toAdd = array_diff($new, $existing);
 
             foreach ($toDelete as $studentId) {
+                $examStudent = ExamStudents::where('exam_call_id', $examCall->id)
+                    ->where('student_id', $studentId)
+                    ->first();
 
-    // Obtener examStudent ANTES de borrar
-    $examStudent = ExamStudents::where('exam_call_id', $examCall->id)
-        ->where('student_id', $studentId)
-        ->first();
+                if ($examStudent) {
+                    Mail::to($examStudent->student->user->email)
+                        ->send(new QuitarConvocatoriaStudentNotificationMail(
+                            $examCall,
+                            $examStudent,
+                            $examStudent->student,
+                            $examCall->exam_date,
+                            "Eliminado de la convocatoria"
+                        ));
 
-    // Enviar email al alumno
-    Mail::to($examStudent->student->user->email)
-        ->send(new QuitarConvocatoriaStudentNotificationMail(
-            $examCall,
-            $examStudent,
-            $examStudent->student,
-            $examCall->exam_date,
-            "Eliminado de la convocatoria"
-        ));
+                    $examStudent->delete();
+                }
+            }
 
-    // Ahora sí borrar
-    $examStudent->delete();
-}
+            foreach ($toAdd as $studentId) {
+                $examStudent = ExamStudents::create([
+                    'exam_call_id' => $examCall->id,
+                    'student_id' => $studentId,
+                    'exam_result_status_id' => 1,
+                    'student_confirmed' => false,
+                    'student_confirmed_at' => null,
+                ]);
 
+                Mail::to($examStudent->student->user->email)
+                    ->send(new AnadirConvocatoriaStudentNotificationMail(
+                        $examCall,
+                        $examStudent,
+                        $examStudent->student,
+                        $examCall->exam_date,
+                        $examCall->examCallStatus->name,
+                        $examStudent->examResultStatus->label,
+                        $examCall->town,
+                        $examCall->teacher,
+                        $examCall->vehicle
+                    ));
+            }
         }
 
-        // ---------------------------------------------------------
-        // ✔ 3B. Añadir nuevos alumnos
-        // ---------------------------------------------------------
-        foreach ($toAdd as $studentId) {
-            ExamStudents::create([
-                'exam_call_id' => $examCall->id,
-                'student_id' => $studentId,
-                'teacher_id' => $data['teacher_id'] ?? $examCall->teacher_id,
-                'vehicle_id' => $data['vehicle_id'] ?? $examCall->vehicle_id,
-                'exam_result_status_id' => 1, // pendiente
-                'student_confirmed' => false,
-                'student_confirmed_at' => null,
-            ]);
-            $examStudent = ExamStudents::where('exam_call_id', $examCall->id)
-    ->where('student_id', $studentId)
-    ->first();
-
-Mail::to($examStudent->student->user->email)
-    ->send(new AnadirConvocatoriaStudentNotificationMail(
-        $examCall,
-        $examStudent,
-        $examStudent->student,
-        $examCall->exam_date,
-        $examCall->examCallStatus->name,
-        $examStudent->examResultStatus->label,
-        $examCall->town,
-        $examStudent->teacher,
-        $examStudent->vehicle
-    ));
-
-        }
+        return response()->json([
+            'message' => 'Convocatoria actualizada correctamente',
+            'exam_call' => $examCall->load([
+                'examCallStatus',
+                'examStudents.student',
+                'examStudents.examResultStatus'
+            ])
+        ]);
     }
-
-    // ---------------------------------------------------------
-    // 🔥 4. Respuesta final
-    // ---------------------------------------------------------
-    return response()->json([
-        'message' => 'Convocatoria actualizada correctamente',
-        'exam_call' => $examCall->load([
-            'examCallStatus',
-            'examStudents.student',
-            'examStudents.examResultStatus'
-        ])
-    ]);
-}
-
-
-
 
     /**
      * Marca una convocatoria de examen como completada y actualiza su estado.
      */
 
-    public function completeExamCall(Request $request, $id)
+     public function completeExamCall(Request $request, $id)
     {
         $request->validate([
             'result_notes' => 'nullable|string',
         ]);
+
         $examCall = ExamCalls::findOrFail($id);
         $examCall->update(['exam_call_status_id' => 2, 'result_notes' => $request->result_notes]);
-        $teacherEmail = $examCall->examStudents->first()->teacher->user->email;
 
-Mail::to($teacherEmail)->send(new FinishConvocatoriaNotificationMail($examCall));
+        if ($examCall->teacher && $examCall->teacher->user) {
+            Mail::to($examCall->teacher->user->email)
+                ->send(new FinishConvocatoriaNotificationMail($examCall));
+        }
 
-foreach ($examCall->examStudents as $examStudent) {
-    Mail::to($examStudent->student->user->email)
-        ->send(new FinishConvocatoriaNotificationMail($examCall));
-}
+        foreach ($examCall->examStudents as $examStudent) {
+            Mail::to($examStudent->student->user->email)
+                ->send(new FinishConvocatoriaNotificationMail($examCall));
+        }
 
         return response()->json([
             'message' => 'Convocatoria completada correctamente',
@@ -383,37 +319,34 @@ foreach ($examCall->examStudents as $examStudent) {
         ]);
     }
 
-    /**
-     * Marca una convocatoria de examen como cancelada y actualiza su estado.
-     */
-
     public function cancelExamCall($id)
     {
         $examCall = ExamCalls::findOrFail($id);
         $examCall->update(['exam_call_status_id' => 3]);
-        $teacherEmail = $examCall->examStudents->first()->teacher->user->email;
 
-Mail::to($teacherEmail)
-    ->send(new CancelConvocatoriaNotificationMail(
-        $examCall,
-        "Cancelada por motivos climatológicos",
-        $examCall->town,
-        $examCall->exam_date,
-        $examCall->examStudents->first()->teacher,
-        $examCall->examStudents->first()->vehicle
-    ));
+        if ($examCall->teacher && $examCall->teacher->user) {
+            Mail::to($examCall->teacher->user->email)
+                ->send(new CancelConvocatoriaNotificationMail(
+                    $examCall,
+                    "Cancelada por motivos climatológicos",
+                    $examCall->town,
+                    $examCall->exam_date,
+                    $examCall->teacher,
+                    $examCall->vehicle
+                ));
+        }
 
-foreach ($examCall->examStudents as $examStudent) {
-    Mail::to($examStudent->student->user->email)
-        ->send(new CancelConvocatoriaNotificationMail(
-            $examCall,
-            "Cancelada por motivos climatológicos",
-            $examCall->town,
-            $examCall->exam_date,
-            $examStudent->teacher,
-            $examStudent->vehicle
-        ));
-}
+        foreach ($examCall->examStudents as $examStudent) {
+            Mail::to($examStudent->student->user->email)
+                ->send(new CancelConvocatoriaNotificationMail(
+                    $examCall,
+                    "Cancelada por motivos climatológicos",
+                    $examCall->town,
+                    $examCall->exam_date,
+                    $examCall->teacher,
+                    $examCall->vehicle
+                ));
+        }
 
         return response()->json([
             'message' => 'Convocatoria cancelada correctamente',
@@ -421,12 +354,8 @@ foreach ($examCall->examStudents as $examStudent) {
         ]);
     }
 
-    /**
-     * Actualiza el resultado de un estudiante específico en una convocatoria de examen, incluyendo su estado del resultado del examen y las notas del resultado.
-     */
     public function updateExamStudentResult(Request $request, $examCallId, $studentId)
     {
-        // Profesor autenticado
         $teacher = auth()->user()->teacherProfile;
 
         $request->validate([
@@ -434,45 +363,39 @@ foreach ($examCall->examStudents as $examStudent) {
             'result_notes' => 'nullable|string',
         ]);
 
-        // Buscar el registro del alumno en la convocatoria
         $examStudent = ExamStudents::where('exam_call_id', $examCallId)
             ->where('student_id', $studentId)
             ->firstOrFail();
 
         $examCall = $examStudent->examCall;
 
-        // 🔥 Validar que el profesor autenticado es el profesor asignado
-        if ($examStudent->teacher_id !== $teacher->id) {
+        if ($teacher->id !== $examCall->teacher_id) {
             return response()->json([
                 'message' => 'No tienes permiso para modificar este resultado.'
             ], 403);
         }
 
-        // Actualizar resultado
         $examStudent->update([
             'exam_result_status_id' => $request->exam_result_status_id,
             'result_notes' => $request->result_notes,
         ]);
 
         Mail::to($examStudent->student->user->email)
-    ->send(new ResultConvocatoriaNotificationMail(
-        $examCall,
-        $examStudent,
-        $examStudent->student,
-        $examCall->exam_date,
-        $examStudent->teacher,
-        $examStudent->vehicle,
-        $examStudent->examResultStatus->label,
-        $examStudent->result_notes
-    ));
-
+            ->send(new ResultConvocatoriaNotificationMail(
+                $examCall,
+                $examStudent,
+                $examStudent->student,
+                $examCall->exam_date,
+                $examCall->teacher,
+                $examCall->vehicle,
+                $examStudent->examResultStatus->label,
+                $examStudent->result_notes
+            ));
 
         return response()->json([
             'message' => 'Resultado del estudiante actualizado correctamente',
             'exam_student' => $examStudent->load([
                 'student.user',
-                'teacher.user',
-                'vehicle',
                 'examResultStatus'
             ])
         ]);
@@ -532,47 +455,48 @@ foreach ($examCall->examStudents as $examStudent) {
      * Devuelve estadísticas de resultados de examen para un profesor específico, incluyendo el número total de estudiantes examinados, el número de aprobados, el número de suspendidos y los porcentajes correspondientes.
      */
     public function examStats($teacherId)
-{
-    $total = ExamStudents::where('teacher_id', $teacherId)
-        ->whereIn('exam_result_status_id', [2, 3])
-        ->count();
+    {
+        $calls = ExamCalls::where('teacher_id', $teacherId)->pluck('id');
 
-    $aprobados = ExamStudents::where('teacher_id', $teacherId)
-        ->where('exam_result_status_id', 2)
-        ->count();
+        $total = ExamStudents::whereIn('exam_call_id', $calls)
+            ->whereIn('exam_result_status_id', [2, 3])
+            ->count();
 
-    $suspendidos = ExamStudents::where('teacher_id', $teacherId)
-        ->where('exam_result_status_id', 3)
-        ->count();
+        $aprobados = ExamStudents::whereIn('exam_call_id', $calls)
+            ->where('exam_result_status_id', 2)
+            ->count();
 
-    $porcentajeAprobados = $total > 0 ? round(($aprobados / $total) * 100, 2) : 0;
-    $porcentajeSuspendidos = $total > 0 ? round(($suspendidos / $total) * 100, 2) : 0;
+        $suspendidos = ExamStudents::whereIn('exam_call_id', $calls)
+            ->where('exam_result_status_id', 3)
+            ->count();
 
-    return response()->json([
-        'teacher_id' => $teacherId,
-        'total_examinados' => $total,
-        'aprobados' => $aprobados,
-        'suspendidos' => $suspendidos,
-        'porcentaje_aprobados' => $porcentajeAprobados,
-        'porcentaje_suspendidos' => $porcentajeSuspendidos,
+        $porcentajeAprobados = $total > 0 ? round(($aprobados / $total) * 100, 2) : 0;
+        $porcentajeSuspendidos = $total > 0 ? round(($suspendidos / $total) * 100, 2) : 0;
 
-        // 🔥 Datos listos para la gráfica circular
-        'chart' => [
-            'labels' => ['Aprobados', 'Suspendidos'],
-            'data' => [$aprobados, $suspendidos],
-            'backgroundColor' => ['#28a745', '#dc3545'], // verde / rojo
-            'borderColor' => '#ffffff',
-        ]
-    ]);
-}
+        return response()->json([
+            'teacher_id' => $teacherId,
+            'total_examinados' => $total,
+            'aprobados' => $aprobados,
+            'suspendidos' => $suspendidos,
+            'porcentaje_aprobados' => $porcentajeAprobados,
+            'porcentaje_suspendidos' => $porcentajeSuspendidos,
+            'chart' => [
+                'labels' => ['Aprobados', 'Suspendidos'],
+                'data' => [$aprobados, $suspendidos],
+                'backgroundColor' => ['#28a745', '#dc3545'],
+                'borderColor' => '#ffffff',
+            ]
+        ]);
+    }
 
     /**
      * Marca la siguiente convocatoria de examen pendiente como programada, actualizando su estado. 
      * Si no hay convocatorias pendientes, devuelve un mensaje indicando que no hay convocatorias para completar.
      */
-    public function toggle($id)
+     public function toggle($id)
     {
         $examCall = ExamCalls::findOrFail($id);
+
         if ($examCall->exam_call_status_id == 3) {
             $examCall->update(['exam_call_status_id' => 1]);
             return response()->json([
@@ -595,7 +519,7 @@ foreach ($examCall->examStudents as $examStudent) {
      * Devuelve la siguiente convocatoria de examen pendiente, ordenada por fecha y hora de inicio. 
      * Si no hay convocatorias pendientes, devuelve un mensaje indicando que no hay convocatorias para completar.
      */
-    public function nextConvocation()
+   public function nextConvocation()
     {
         $next = ExamCalls::where('exam_call_status_id', 1)
             ->orderBy('exam_date')
@@ -603,13 +527,12 @@ foreach ($examCall->examStudents as $examStudent) {
             ->first();
 
         if ($next) {
-
-            // 🔥 Cargar TODAS las relaciones necesarias para el frontend
             $next->load([
                 'examCallStatus',
+                'teacher.user',
+                'vehicle',
                 'examStudents.student.user',
-                'examStudents.teacher.user',
-                'examStudents.vehicle'
+                'examStudents.examResultStatus'
             ]);
 
             return response()->json([
@@ -626,246 +549,197 @@ foreach ($examCall->examStudents as $examStudent) {
      * Función que permite a un estudiante confirmar su asistencia a una convocatoria de examen específica, 
      * actualizando el estado de confirmación del estudiante y la fecha y hora de confirmación.
      */
-   public function confirmAttendance(Request $request, $examCallId, $studentId)
-{
-    if (auth()->user()->studentProfile->id != $studentId) {
+    public function confirmAttendance(Request $request, $examCallId, $studentId)
+    {
+        if (auth()->user()->studentProfile->id != $studentId) {
+            return response()->json([
+                'message' => 'No tienes permiso para confirmar la asistencia de este estudiante.'
+            ], 403);
+        }
+
+        $examCall = ExamCalls::findOrFail($examCallId);
+
+        $examStudent = ExamStudents::firstOrCreate(
+            [
+                'exam_call_id' => $examCallId,
+                'student_id' => $studentId,
+            ],
+            [
+                'exam_result_status_id' => 1,
+                'student_confirmed' => true,
+                'student_confirmed_at' => now(),
+            ]
+        );
+
+        Mail::to($examCall->teacher->user->email)
+            ->send(new ConfirmConvocatoriaStudentMailable(
+                $examStudent->student,
+                $examStudent,
+                $examCall
+            ));
+
         return response()->json([
-            'message' => 'No tienes permiso para confirmar la asistencia de este estudiante.'
-        ], 403);
-    }
-
-    // 🔥 Obtener SIEMPRE la convocatoria
-    $examCall = ExamCalls::findOrFail($examCallId);
-
-    // Buscar registro existente
-    $examStudent = ExamStudents::where('exam_call_id', $examCallId)
-        ->where('student_id', $studentId)
-        ->first();
-
-    // 🔥 Si NO existe → crearlo
-    if (!$examStudent) {
-        $examStudent = ExamStudents::create([
-            'exam_call_id' => $examCallId,
-            'student_id' => $studentId,
-            'teacher_id' => $examCall->examStudents->first()->teacher_id ?? null,
-            'vehicle_id' => $examCall->examStudents->first()->vehicle_id ?? null,
-            'exam_result_status_id' => 1,
-            'student_confirmed' => true,
-            'student_confirmed_at' => now(),
-        ]);
-    } else {
-        // Si existe → actualizar
-        $examStudent->update([
-            'student_confirmed' => true,
-            'student_confirmed_at' => now(),
+            'message' => 'Asistencia confirmada correctamente',
+            'exam_student' => $examStudent->load(['examCall', 'examResultStatus'])
         ]);
     }
 
-    // 🔥 Ahora SÍ existe $examCall siempre
-    Mail::to($examStudent->teacher->user->email)
-        ->send(new ConfirmConvocatoriaStudentMailable(
-            $examStudent->student,
-            $examStudent,
-            $examCall
-        ));
-
-    return response()->json([
-        'message' => 'Asistencia confirmada correctamente',
-        'exam_student' => $examStudent->load(['examCall', 'examResultStatus'])
-    ]);
-}
-
-
-    /**
-     * Función que permite a un estudiante desconfirmar su asistencia a una convocatoria de examen específica, 
-     * actualizando el estado de confirmación del estudiante y la fecha y hora de confirmación a null.
-     */
     public function unconfirmAttendance(Request $request, $examCallId, $studentId)
-{
-    $examStudent = ExamStudents::where('exam_call_id', $examCallId)
-        ->where('student_id', $studentId)
-        ->firstOrFail();
+    {
+        $examStudent = ExamStudents::where('exam_call_id', $examCallId)
+            ->where('student_id', $studentId)
+            ->firstOrFail();
 
-    if (auth()->user()->studentProfile->id != $studentId) {
-        return response()->json([
-            'message' => 'No tienes permiso para confirmar la asistencia de este estudiante.'
-        ], 403);
-    }
+        if (auth()->user()->studentProfile->id != $studentId) {
+            return response()->json([
+                'message' => 'No tienes permiso para desconfirmar la asistencia de este estudiante.'
+            ], 403);
+        }
 
-    $motive = $request->motive ?? 'El estudiante no indicó un motivo.';
+        $motive = $request->motive ?? 'El estudiante no indicó un motivo.';
 
-    // Actualizar estado de confirmación + motivo (result_notes)
-    $examStudent->update([
-        'student_confirmed' => false,
-        'student_confirmed_at' => null,
-        'exam_result_status_id' => 4, // No presentado
-        'result_notes' => $motive,
-    ]);
+        $examStudent->update([
+            'student_confirmed' => false,
+            'student_confirmed_at' => null,
+            'exam_result_status_id' => 4,
+            'result_notes' => $motive,
+        ]);
 
-    // 🔥 Obtener profesor SIEMPRE desde examStudent
-    $teacherEmail = $examStudent->teacher?->user?->email;
-
-    if ($teacherEmail) {
-        Mail::to($teacherEmail)
+        Mail::to($examStudent->examCall->teacher->user->email)
             ->send(new CancelarConvocatoriaEstudianteMailable(
                 $examStudent->student,
                 $examStudent,
                 $examStudent->examCall,
                 $motive
             ));
+
+        return response()->json([
+            'message' => 'Asistencia desconfirmada correctamente',
+            'exam_student' => $examStudent->load(['examCall', 'examResultStatus'])
+        ]);
     }
-
-    return response()->json([
-        'message' => 'Asistencia desconfirmada correctamente',
-        'exam_student' => $examStudent->load(['examCall', 'examResultStatus'])
-    ]);
-}
-
     /**
      * Historial de convocatorias para el alumno, sin tener duiplicados.
      */
     public function studentConvocationHistory($studentId)
-{
-    $records = ExamStudents::with([
-        'examCall.town',
-        'examCall.examCallStatus',
-        'examResultStatus'
-    ])
-    ->where('student_id', $studentId)
-    ->get()
-    ->groupBy('exam_call_id') // ❗ evita duplicados
-    ->map(function ($group) {
-        $r = $group->first();
-
-        return [
-            'exam_call_id' => $r->exam_call_id,
-            'date' => $r->examCall->exam_date,
-            'time' => $r->examCall->start_time,
-            'student_confirmed' => $r->student_confirmed,
-            'exam_status' => $r->examResultStatus->label ?? $r->examResultStatus->name,
-            'convocatoria_status' => $r->examCall->examCallStatus->name,
-        ];
-    })
-    ->values();
-
-    return response()->json($records);
-}
-/**
- * Borrar convocatoria de examen, eliminando también los registros asociados en exam_students.
- * Solo se permite borrar convocatorias que no estén completadas.
- */
-public function destroy($id)
-{
-    $examCall = ExamCalls::findOrFail($id);
-
-    if ($examCall->exam_call_status_id == 2) {
-        return response()->json([
-            'message' => 'No se puede eliminar una convocatoria que ya está completada.'
-        ], 400);
-    }
-
-    // 🔥 Guardar datos ANTES de borrar
-    $examStudents = $examCall->examStudents; // colección completa
-    $first = $examStudents->first(); // primer registro
-
-    $teacher = $first?->teacher; // puede ser null
-    $teacherEmail = $teacher?->user?->email;
-
-    // 🔥 Borrar exam_students
-    ExamStudents::where('exam_call_id', $examCall->id)->delete();
-
-    // 🔥 Borrar convocatoria
-    $examCall->delete();
-
-    // 🔥 Enviar email al profesor (si existe)
-    if ($teacherEmail) {
-        Mail::to($teacherEmail)->send(new QuitarConvocatoriaNotificationMail($examCall));
-    }
-
-    // 🔥 Enviar email a cada alumno
-    foreach ($examStudents as $examStudent) {
-        $email = $examStudent->student->user->email;
-        Mail::to($email)->send(new QuitarConvocatoriaNotificationMail($examCall));
-    }
-
-    return response()->json([
-        'message' => 'Convocatoria eliminada correctamente'
-    ]);
-}
-
-/**
- * Función que permite a un profesor aprobar a un estudiante específico en una convocatoria de examen,
- * actualizando el estado de aprobación del estudiante y la fecha y hora de aprobación.
- */
-public function approveStudent(Request $request, $examCallId, $studentId)
-{
-     $examStudent = ExamStudents::where('exam_call_id', $examCallId)
+    {
+        $records = ExamStudents::with([
+            'examCall.town',
+            'examCall.examCallStatus',
+            'examResultStatus'
+        ])
         ->where('student_id', $studentId)
-        ->firstOrFail();
+        ->get()
+        ->groupBy('exam_call_id')
+        ->map(function ($group) {
+            $r = $group->first();
 
-    if (auth()->user()->teacherProfile->id != $examStudent->teacher_id) {
+            return [
+                'exam_call_id' => $r->exam_call_id,
+                'date' => $r->examCall->exam_date,
+                'time' => $r->examCall->start_time,
+                'student_confirmed' => $r->student_confirmed,
+                'exam_status' => $r->examResultStatus->label ?? $r->examResultStatus->name,
+                'convocatoria_status' => $r->examCall->examCallStatus->name,
+            ];
+        })
+        ->values();
+
+        return response()->json($records);
+    }
+
+    public function destroy($id)
+    {
+        $examCall = ExamCalls::findOrFail($id);
+
+        if ($examCall->exam_call_status_id == 2) {
+            return response()->json([
+                'message' => 'No se puede eliminar una convocatoria que ya está completada.'
+            ], 400);
+        }
+
+        $examStudents = $examCall->examStudents;
+
+        $teacherEmail = $examCall->teacher?->user?->email;
+
+        ExamStudents::where('exam_call_id', $examCall->id)->delete();
+        $examCall->delete();
+
+        if ($teacherEmail) {
+            Mail::to($teacherEmail)->send(new QuitarConvocatoriaNotificationMail($examCall));
+        }
+
+        foreach ($examStudents as $examStudent) {
+            Mail::to($examStudent->student->user->email)
+                ->send(new QuitarConvocatoriaNotificationMail($examCall));
+        }
+
         return response()->json([
-            'message' => 'Tiene que ser el profesor asignado a este estudiante en esta convocatoria.'
-        ], 403);
+            'message' => 'Convocatoria eliminada correctamente'
+        ]);
     }
 
-    $examStudent->update([
-        'student_confirmed' => true,
-        'student_confirmed_at' => now(),
-    ]);
+    public function approveStudent(Request $request, $examCallId, $studentId)
+    {
+        $examStudent = ExamStudents::where('exam_call_id', $examCallId)
+            ->where('student_id', $studentId)
+            ->firstOrFail();
 
-    return response()->json([
-        'message' => 'Estudiante aprobado correctamente',
-        'exam_student' => $examStudent->load(['examCall', 'examResultStatus'])
-    ]);
-}
-/**
- * Función que permite a un profesor desaprobar a un estudiante específico en una convocatoria de examen,
- * actualizando el estado de aprobación del estudiante y la fecha y hora de desaprobación.
- */
-public function unapproveStudent(Request $request, $examCallId, $studentId)
-{
-    $examStudent = ExamStudents::where('exam_call_id', $examCallId)
-        ->where('student_id', $studentId)
-        ->firstOrFail();
+        if (auth()->user()->teacherProfile->id != $examStudent->examCall->teacher_id) {
+            return response()->json([
+                'message' => 'Tiene que ser el profesor asignado a esta convocatoria.'
+            ], 403);
+        }
 
-    if (auth()->user()->teacherProfile->id != $examStudent->teacher_id) {
+        $examStudent->update([
+            'student_confirmed' => true,
+            'student_confirmed_at' => now(),
+        ]);
+
         return response()->json([
-            'message' => 'No tienes permiso para desaprobar a este estudiante.'
-        ], 403);
+            'message' => 'Estudiante aprobado correctamente',
+            'exam_student' => $examStudent->load(['examCall', 'examResultStatus'])
+        ]);
     }
 
-    $examStudent->update([
-        'student_confirmed'=> false,
-        'student_confirmed_at'=> null,
-        'exam_result_status_id' => 4,
-    ]);
+    public function unapproveStudent(Request $request, $examCallId, $studentId)
+    {
+        $examStudent = ExamStudents::where('exam_call_id', $examCallId)
+            ->where('student_id', $studentId)
+            ->firstOrFail();
 
-    $examStudent->delete();
+        if (auth()->user()->teacherProfile->id != $examStudent->examCall->teacher_id) {
+            return response()->json([
+                'message' => 'No tienes permiso para desaprobar a este estudiante.'
+            ], 403);
+        }
 
-    return response()->json([
-        'message' => 'Estudiante desaprobado correctamente',
-        'exam_student' => $examStudent->load(['examCall', 'examResultStatus'])
-    ]);
-}
-/**
- * Función privada que calcula el número de plazas restantes para una convocatoria de examen específica,
- * restando el número de estudiantes actualmente inscritos del número máximo de estudiantes permitido por la convocatoria.
- * Si la convocatoria no tiene un límite de estudiantes, devuelve null.
- */
-private function getRemainingSeats($examCallId)
-{
-    $examCall = ExamCalls::findOrFail($examCallId);
+        $examStudent->update([
+            'student_confirmed'=> false,
+            'student_confirmed_at'=> null,
+            'exam_result_status_id' => 4,
+        ]);
 
-    if (!$examCall->max_students || $examCall->max_students <= 0) {
-        return null; // ilimitado
+        $examStudent->delete();
+
+        return response()->json([
+            'message' => 'Estudiante desaprobado correctamente',
+            'exam_student' => $examStudent->load(['examCall', 'examResultStatus'])
+        ]);
     }
 
-    $current = ExamStudents::where('exam_call_id', $examCallId)->count();
+    private function getRemainingSeats($examCallId)
+    {
+        $examCall = ExamCalls::findOrFail($examCallId);
 
-    return max($examCall->max_students - $current, 0);
-}
+        if (!$examCall->max_students || $examCall->max_students <= 0) {
+            return null;
+        }
 
+        $current = ExamStudents::where('exam_call_id', $examCallId)->count();
+
+        return max($examCall->max_students - $current, 0);
+    }
 /**
  * Generar un listado de estudiantes aceptados por el profesor
  * y además poder quitar alumnos de esa convocatoria si
@@ -935,21 +809,17 @@ public function listPendingApprovalStudents($examCallId)
 {
     $examCall = ExamCalls::with([
         'examStudents.student.user',
-        'examStudents.teacher.user',
-        'examStudents.vehicle',
         'examStudents.examResultStatus'
     ])->findOrFail($examCallId);
 
     $inside = $examCall->examStudents;
 
-    // 🔥 1. Alumnos dentro de la convocatoria pendientes de aceptar:
-    // - han confirmado asistencia
-    // - NO han sido aprobados por el profesor
+    // 1. Alumnos dentro que han confirmado asistencia
     $pendingInside = $inside->filter(function ($s) {
         return $s->student_confirmed == true;
     })->values();
 
-    // 🔥 2. Alumnos aptos para examen que NO están en la convocatoria
+    // 2. Alumnos aptos fuera de la convocatoria
     $insideIds = $inside->pluck('student_id')->toArray();
 
     $studentsReady = StudentSkillEvaluations::where('ready_for_exam', true)
@@ -976,29 +846,37 @@ public function listPendingApprovalStudents($examCallId)
         'pending_outside' => $pendingOutside,
     ]);
 }
+
+
 /**
  * Función que permite a un profesor añadir a un estudiante específico a la lista de aprobados en una convocatoria de examen,
  * actualizando el estado de aprobación del estudiante y la fecha y hora de aprobación.
  */
 public function addApprovedStudent(Request $request, $examCallId, $studentId)
 {
+    $examCall = ExamCalls::findOrFail($examCallId);
+
+    // Validar profesor asignado a la convocatoria
+    if (auth()->user()->teacherProfile->id != $examCall->teacher_id) {
+        return response()->json([
+            'message' => 'Tiene que ser el profesor asignado a esta convocatoria.'
+        ], 403);
+    }
+
     // Buscar si ya existe
     $examStudent = ExamStudents::where('exam_call_id', $examCallId)
         ->where('student_id', $studentId)
         ->first();
 
-    $examCall = ExamCalls::findOrFail($examCallId);
-
     // Si ya existe → actualizar
     if ($examStudent) {
 
         $examStudent->update([
-            'exam_result_status_id' => 1, // pendiente
-            'student_confirmed' => false,
-            'student_confirmed_at' => null,
+            'exam_result_status_id' => 1,
+            'student_confirmed' => true,
+            'student_confirmed_at' => now(),
         ]);
 
-        // 🔥 Enviar email al alumno
         Mail::to($examStudent->student->user->email)
             ->send(new AnadirConvocatoriaStudentNotificationMail(
                 $examCall,
@@ -1008,8 +886,8 @@ public function addApprovedStudent(Request $request, $examCallId, $studentId)
                 $examCall->examCallStatus->name,
                 $examStudent->examResultStatus->label,
                 $examCall->town,
-                $examStudent->teacher,
-                $examStudent->vehicle
+                $examCall->teacher,
+                $examCall->vehicle
             ));
 
         return response()->json([
@@ -1022,14 +900,11 @@ public function addApprovedStudent(Request $request, $examCallId, $studentId)
     $examStudent = ExamStudents::create([
         'exam_call_id' => $examCallId,
         'student_id' => $studentId,
-        'teacher_id' => $examCall->examStudents->first()->teacher_id ?? null,
-        'vehicle_id' => $examCall->examStudents->first()->vehicle_id ?? null,
         'exam_result_status_id' => 1,
-        'student_confirmed' => false,
-        'student_confirmed_at' => null,
+        'student_confirmed' => true,
+        'student_confirmed_at' => now(),
     ]);
 
-    // 🔥 Enviar email al alumno
     Mail::to($examStudent->student->user->email)
         ->send(new AnadirConvocatoriaStudentNotificationMail(
             $examCall,
@@ -1039,8 +914,8 @@ public function addApprovedStudent(Request $request, $examCallId, $studentId)
             $examCall->examCallStatus->name,
             $examStudent->examResultStatus->label,
             $examCall->town,
-            $examStudent->teacher,
-            $examStudent->vehicle
+            $examCall->teacher,
+            $examCall->vehicle
         ));
 
     return response()->json([
@@ -1048,6 +923,4 @@ public function addApprovedStudent(Request $request, $examCallId, $studentId)
         'exam_student' => $examStudent
     ]);
 }
-
-
 }

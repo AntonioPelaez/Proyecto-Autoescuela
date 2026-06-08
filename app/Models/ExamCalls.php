@@ -10,6 +10,8 @@ class ExamCalls extends Model
 
     protected $fillable = [
         'town_id',
+        'teacher_id',
+        'vehicle_id',
         'exam_date',
         'start_time',
         'exam_call_status_id',
@@ -26,6 +28,17 @@ class ExamCalls extends Model
     {
         return $this->belongsTo(ExamCallStatus::class, 'exam_call_status_id');
     }
+
+    public function teacher()
+{
+    return $this->belongsTo(TeacherProfile::class, 'teacher_id');
+}
+
+public function vehicle()
+{
+    return $this->belongsTo(Vehicle::class, 'vehicle_id');
+}
+
 
     public function examStudents()
     {

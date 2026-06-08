@@ -43,8 +43,8 @@ class AnadirConvocatoriaNotificationMail extends Mailable
     with: [
         'examCall' => $this->examCall,
         'students' => $this->examCall->examStudents,
-        'teacher' => $this->examCall->examStudents->first()->teacher,
-        'vehicle' => $this->examCall->examStudents->first()->vehicle,
+        'teacher' => $this->examCall->teacher,
+        'vehicle' => $this->examCall->vehicle,
         'town' => $this->examCall->town,
         'date' => $this->examCall->exam_date,
         'time' => $this->examCall->start_time,
