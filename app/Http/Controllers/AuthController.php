@@ -117,7 +117,7 @@ Mail::to($user->email)
     /**
      * Obtener información del usuario autenticado.
      */
-  public function me(Request $request)
+public function me(Request $request)
 {
     $user = $request->user()->load([
         'studentProfile.wallet',
@@ -133,6 +133,10 @@ Mail::to($user->email)
         'phone' => $user->phone,
         'role' => $user->role->name ?? null,
 
+        // 🔥 IDs planos para el frontend (NUEVO)
+        'student_profile_id' => $user->studentProfile->id ?? null,
+        'teacher_profile_id' => $user->teacherProfile->id ?? null,
+
         // PERFIL DE ESTUDIANTE
         'student_profile' => $user->studentProfile ? [
             'id' => $user->studentProfile->id,
@@ -140,7 +144,7 @@ Mail::to($user->email)
             'birth_date' => $user->studentProfile->birth_date,
             'pickup_notes' => $user->studentProfile->pickup_notes,
 
-            // 🔥 AQUÍ DEVUELVES EL MONEDERO
+            // Monedero
             'wallet' => $user->studentProfile->wallet ? [
                 'id' => $user->studentProfile->wallet->id,
                 'balance' => $user->studentProfile->wallet->balance,
@@ -155,5 +159,6 @@ Mail::to($user->email)
         ] : null,
     ]);
 }
+
 
 }

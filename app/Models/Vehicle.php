@@ -24,8 +24,8 @@ class Vehicle extends Model
     public function sessionClass(){
         return $this->hasMany(ClassSession::class);
     }
-    public function examStudents()
+    public function examCalls()
     {
-        return $this->hasMany(ExamStudents::class, 'vehicle_id');
+        return $this->hasMany(ExamCalls::class, 'vehicle_id');
     }
 }

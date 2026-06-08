@@ -6,7 +6,7 @@ Hola,
 Se han realizado modificaciones en tu convocatoria. A continuación puedes ver los detalles actualizados:
 
 @component('mail::panel')
-**Fecha del examen:** {{ $startDate }}  
+**Fecha del examen:** {{ \Carbon\Carbon::parse($startDate )->format('d/m/Y')}}  
 **Ciudad:** {{ $town->name }}  
 **Profesor:** {{ $teacher->user->name }}  
 **Vehículo:** {{ $vehicle->brand }} {{ $vehicle->model }} ({{ $vehicle->plate_number }})  
