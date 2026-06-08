@@ -1,7 +1,7 @@
 @component('mail::message')
 # Confirmación de asistencia del estudiante
 
-Hola {{ $examStudent->teacher->user->name }},
+Hola {{ $examCall->teacher->user->name }},
 
 El estudiante **{{ $student->user->name }} {{ $student->user->surname1 }} {{ $student->user->surname2 }}** ha confirmado su asistencia a la convocatoria.
 

@@ -73,30 +73,33 @@ class ExamCallsController extends Controller
      * Devuelve los detalles de una convocatoria de examen específica, incluyendo su estado, los estudiantes asociados, el profesor asignado y el vehículo utilizado.
      */
     public function show($id)
-    {
-        $examCall = ExamCalls::with([
-            'town',
-            'teacher.user',
-            'vehicle',
-            'examCallStatus',
-            'examStudents.student.user',
-            'examStudents.examResultStatus'
-        ])->findOrFail($id);
+{
+    $examCall = ExamCalls::with([
+        'town',
+        'teacher.user',
+        'vehicle',
+        'examCallStatus',
+        'examStudents.student.user',
+        'examStudents.examResultStatus'
+    ])->findOrFail($id);
 
-        return response()->json([
-            'id' => $examCall->id,
-            'exam_date' => $examCall->exam_date,
-            'start_time' => $examCall->start_time,
-            'town_id' => $examCall->town_id,
-            'town' => $examCall->town,
-            'teacher_id' => $examCall->teacher_id,
-            'vehicle_id' => $examCall->vehicle_id,
-            'notes' => $examCall->notes,
-            'max_students' => $examCall->max_students,
-            'exam_call_status' => $examCall->examCallStatus,
-            'exam_students' => $examCall->examStudents,
-        ]);
-    }
+    return response()->json([
+        'id' => $examCall->id,
+        'exam_date' => $examCall->exam_date,
+        'start_time' => $examCall->start_time,
+        'town_id' => $examCall->town_id,
+        'town' => $examCall->town,
+        'teacher_id' => $examCall->teacher_id,
+        'teacher' => $examCall->teacher,          // 👈 AÑADIDO
+        'vehicle_id' => $examCall->vehicle_id,
+        'vehicle' => $examCall->vehicle,          // 👈 AÑADIDO
+        'notes' => $examCall->notes,
+        'max_students' => $examCall->max_students,
+        'exam_call_status' => $examCall->examCallStatus,
+        'exam_students' => $examCall->examStudents,
+    ]);
+}
+
 
     /**
      * Crea una convocatoria de examen y asocia a los estudiantes seleccionados, verificando que estén preparados para el examen.
