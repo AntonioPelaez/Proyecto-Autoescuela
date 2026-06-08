@@ -750,15 +750,16 @@ public function listedApprovedStudents($examCallId)
 {
     $approvedStudents = ExamStudents::with([
         'student.user',
-        'teacher.user',
-        'vehicle',
         'examResultStatus'
     ])
     ->where('exam_call_id', $examCallId)
     ->where('student_confirmed', true)
     ->get();
+
     return response()->json($approvedStudents);
 }
+
+
 /**
  * Función que permite a un profesor quitar a un estudiante específico de la lista de aprobados en una convocatoria de examen,
  * actualizando el estado de aprobación del estudiante y la fecha y hora de desaprobación.
@@ -769,18 +770,17 @@ public function removeApprovedStudent(Request $request, $examCallId, $studentId)
         ->where('student_id', $studentId)
         ->firstOrFail();
 
-    if (auth()->user()->teacherProfile->id != $examStudent->teacher_id) {
+    $examCall = $examStudent->examCall;
+
+    // Validar profesor asignado a la convocatoria
+    if (auth()->user()->teacherProfile->id != $examCall->teacher_id) {
         return response()->json([
-            'message' => 'Tiene que ser el profesor asignado a este estudiante en esta convocatoria.'
+            'message' => 'Tiene que ser el profesor asignado a esta convocatoria.'
         ], 403);
     }
 
-    $examCall = $examStudent->examCall;
-
-    // Motivo real
     $motive = $request->result_notes ?? 'Sin motivo especificado';
 
-    // Enviar email ANTES de borrar
     Mail::to($examStudent->student->user->email)
         ->send(new QuitarConvocatoriaStudentNotificationMail(
             $examCall,
@@ -790,7 +790,6 @@ public function removeApprovedStudent(Request $request, $examCallId, $studentId)
             $motive
         ));
 
-    // 🔥 ELIMINAR al alumno de la convocatoria
     $examStudent->delete();
 
     return response()->json([
@@ -798,6 +797,7 @@ public function removeApprovedStudent(Request $request, $examCallId, $studentId)
         'remaining_seats' => $this->getRemainingSeats($examCallId)
     ]);
 }
+
 
 
 
@@ -814,12 +814,8 @@ public function listPendingApprovalStudents($examCallId)
 
     $inside = $examCall->examStudents;
 
-    // 1. Alumnos dentro que han confirmado asistencia
-    $pendingInside = $inside->filter(function ($s) {
-        return $s->student_confirmed == true;
-    })->values();
+    $pendingInside = $inside->filter(fn($s) => !$s->student_confirmed)->values();
 
-    // 2. Alumnos aptos fuera de la convocatoria
     $insideIds = $inside->pluck('student_id')->toArray();
 
     $studentsReady = StudentSkillEvaluations::where('ready_for_exam', true)
@@ -836,7 +832,7 @@ public function listPendingApprovalStudents($examCallId)
                 'id' => $s->id,
                 'name' => $s->user->name,
                 'surname' => trim($s->user->surname1 . ' ' . $s->user->surname2),
-                'town' => $s->town ? $s->town->name : null,
+                'town' => $s->town?->name,
             ];
         })
         ->values();
@@ -848,6 +844,7 @@ public function listPendingApprovalStudents($examCallId)
 }
 
 
+
 /**
  * Función que permite a un profesor añadir a un estudiante específico a la lista de aprobados en una convocatoria de examen,
  * actualizando el estado de aprobación del estudiante y la fecha y hora de aprobación.
@@ -856,19 +853,16 @@ public function addApprovedStudent(Request $request, $examCallId, $studentId)
 {
     $examCall = ExamCalls::findOrFail($examCallId);
 
-    // Validar profesor asignado a la convocatoria
     if (auth()->user()->teacherProfile->id != $examCall->teacher_id) {
         return response()->json([
             'message' => 'Tiene que ser el profesor asignado a esta convocatoria.'
         ], 403);
     }
 
-    // Buscar si ya existe
     $examStudent = ExamStudents::where('exam_call_id', $examCallId)
         ->where('student_id', $studentId)
         ->first();
 
-    // Si ya existe → actualizar
     if ($examStudent) {
 
         $examStudent->update([
@@ -896,7 +890,6 @@ public function addApprovedStudent(Request $request, $examCallId, $studentId)
         ]);
     }
 
-    // Si NO existe → crearlo
     $examStudent = ExamStudents::create([
         'exam_call_id' => $examCallId,
         'student_id' => $studentId,
@@ -923,4 +916,5 @@ public function addApprovedStudent(Request $request, $examCallId, $studentId)
         'exam_student' => $examStudent
     ]);
 }
+
 }

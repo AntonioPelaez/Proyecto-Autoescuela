@@ -9,9 +9,9 @@
     <h2>Cancelación de convocatoria</h2>
 
     <p>
-        Hola <strong>{{ $examStudent->teacher->user->name }}
-        {{ $examStudent->teacher->user->surname1 }}
-        {{ $examStudent->teacher->user->surname2 }}</strong>,
+        Hola <strong>{{ $examCall->teacher->user->name }}
+        {{ $examCall->teacher->user->surname1 }}
+        {{ $examCall->teacher->user->surname2 }}</strong>,
     </p>
 
     <p>El alumno <strong>{{ $student->user->name }} {{ $student->user->surname1 }} {{ $student->user->surname2 }}</strong> ha <strong>cancelado</strong> su convocatoria.</p>
@@ -21,9 +21,9 @@
         <li><strong>Fecha:</strong> {{ \Carbon\Carbon::parse($examCall->exam_date)->format('d/m/Y') }}</li>
         <li><strong>Hora:</strong> {{ $examCall->start_time }}</li>
         <li><strong>Profesor:</strong>
-            {{ $examStudent->teacher->user->name }}
-            {{ $examStudent->teacher->user->surname1 }}
-            {{ $examStudent->teacher->user->surname2 }}
+            {{ $examCall->teacher->user->name }}
+            {{ $examCall->teacher->user->surname1 }}
+            {{ $examCall->teacher->user->surname2 }}
         </li>
     </ul>
 
