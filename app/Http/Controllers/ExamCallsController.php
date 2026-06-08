@@ -65,8 +65,6 @@ class ExamCallsController extends Controller
             'result_notes' => $s->result_notes,
             'student_confirmed' => $s->student_confirmed,
             'student_confirmed_at' => $s->student_confirmed_at,
-            'teacher_approved' => $s->teacher_approved,            // ✔ AÑADIDO
-            'teacher_approved_at' => $s->teacher_approved_at,      // ✔ AÑADIDO
         ];
     });
 
@@ -700,8 +698,6 @@ foreach ($examCall->examStudents as $examStudent) {
     $examStudent->update([
         'student_confirmed' => false,
         'student_confirmed_at' => null,
-        'teacher_approved' => false,
-        'teacher_approved_at' => null,
         'exam_result_status_id' => 4, // No presentado
         'result_notes' => $motive,
     ]);
@@ -814,8 +810,8 @@ public function approveStudent(Request $request, $examCallId, $studentId)
     }
 
     $examStudent->update([
-        'teacher_approved' => true,
-        'teacher_approved_at' => now(),
+        'student_confirmed' => true,
+        'student_confirmed_at' => now(),
     ]);
 
     return response()->json([
@@ -842,8 +838,7 @@ public function unapproveStudent(Request $request, $examCallId, $studentId)
     $examStudent->update([
         'student_confirmed'=> false,
         'student_confirmed_at'=> null,
-        'teacher_approved' => false,
-        'teacher_approved_at' => null,
+        'exam_result_status_id' => 4,
     ]);
 
     $examStudent->delete();
@@ -886,7 +881,7 @@ public function listedApprovedStudents($examCallId)
         'examResultStatus'
     ])
     ->where('exam_call_id', $examCallId)
-    ->where('teacher_approved', true)
+    ->where('student_confirmed', true)
     ->get();
     return response()->json($approvedStudents);
 }
@@ -951,8 +946,7 @@ public function listPendingApprovalStudents($examCallId)
     // - han confirmado asistencia
     // - NO han sido aprobados por el profesor
     $pendingInside = $inside->filter(function ($s) {
-        return $s->student_confirmed == true
-            && $s->teacher_approved == false;
+        return $s->student_confirmed == true;
     })->values();
 
     // 🔥 2. Alumnos aptos para examen que NO están en la convocatoria
@@ -999,8 +993,6 @@ public function addApprovedStudent(Request $request, $examCallId, $studentId)
     if ($examStudent) {
 
         $examStudent->update([
-            'teacher_approved' => true,
-            'teacher_approved_at' => now(),
             'exam_result_status_id' => 1, // pendiente
             'student_confirmed' => false,
             'student_confirmed_at' => null,
@@ -1033,8 +1025,6 @@ public function addApprovedStudent(Request $request, $examCallId, $studentId)
         'teacher_id' => $examCall->examStudents->first()->teacher_id ?? null,
         'vehicle_id' => $examCall->examStudents->first()->vehicle_id ?? null,
         'exam_result_status_id' => 1,
-        'teacher_approved' => true,
-        'teacher_approved_at' => now(),
         'student_confirmed' => false,
         'student_confirmed_at' => null,
     ]);

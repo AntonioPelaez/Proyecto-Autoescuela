@@ -9,10 +9,12 @@
     <h2>Cancelación de convocatoria</h2>
 
     <p>
-        Hola <strong>{{ $student->user->name }} {{ $student->user->surname1 }} {{ $student->user->surname2 }}</strong>,
+        Hola <strong>{{ $examStudent->teacher->user->name }}
+        {{ $examStudent->teacher->user->surname1 }}
+        {{ $examStudent->teacher->user->surname2 }}</strong>,
     </p>
 
-    <p>Tu convocatoria ha sido <strong>cancelada</strong>.</p>
+    <p>El alumno <strong>{{ $student->user->name }} {{ $student->user->surname1 }} {{ $student->user->surname2 }}</strong> ha <strong>cancelado</strong> su convocatoria.</p>
 
     <h3>Detalles de la convocatoria</h3>
     <ul>
@@ -28,7 +30,7 @@
     <h3>Motivo de la cancelación</h3>
     <p>{{ $motive }}</p>
 
-    <p>Si tienes dudas, contacta con tu profesor o con administración.</p>
+    <p>Si necesitas más información, puedes contactar con administración.</p>
 
     <p><strong>Autoescuela</strong></p>
 
