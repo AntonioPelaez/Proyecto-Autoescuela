@@ -552,40 +552,50 @@ class ExamCallsController extends Controller
      * Función que permite a un estudiante confirmar su asistencia a una convocatoria de examen específica, 
      * actualizando el estado de confirmación del estudiante y la fecha y hora de confirmación.
      */
-    public function confirmAttendance(Request $request, $examCallId, $studentId)
-    {
-        if (auth()->user()->studentProfile->id != $studentId) {
-            return response()->json([
-                'message' => 'No tienes permiso para confirmar la asistencia de este estudiante.'
-            ], 403);
-        }
-
-        $examCall = ExamCalls::findOrFail($examCallId);
-
-        $examStudent = ExamStudents::firstOrCreate(
-            [
-                'exam_call_id' => $examCallId,
-                'student_id' => $studentId,
-            ],
-            [
-                'exam_result_status_id' => 1,
-                'student_confirmed' => true,
-                'student_confirmed_at' => now(),
-            ]
-        );
-
-        Mail::to($examCall->teacher->user->email)
-            ->send(new ConfirmConvocatoriaStudentMailable(
-                $examStudent->student,
-                $examStudent,
-                $examCall
-            ));
-
+public function confirmAttendance(Request $request, $examCallId, $studentId)
+{
+    if (auth()->user()->studentProfile->id != $studentId) {
         return response()->json([
-            'message' => 'Asistencia confirmada correctamente',
-            'exam_student' => $examStudent->load(['examCall', 'examResultStatus'])
-        ]);
+            'message' => 'No tienes permiso para confirmar la asistencia de este estudiante.'
+        ], 403);
     }
+
+    $examCall = ExamCalls::findOrFail($examCallId);
+
+    // Buscar si ya existe
+    $examStudent = ExamStudents::where('exam_call_id', $examCallId)
+        ->where('student_id', $studentId)
+        ->first();
+
+    if ($examStudent) {
+    $examStudent->update([
+        'exam_result_status_id' => 1,
+        'student_confirmed' => false,   // 👈 IMPORTANTE
+        'student_confirmed_at' => now(),
+    ]);
+} else {
+    $examStudent = ExamStudents::create([
+        'exam_call_id' => $examCallId,
+        'student_id' => $studentId,
+        'exam_result_status_id' => 1,
+        'student_confirmed' => false,   // 👈 IMPORTANTE
+        'student_confirmed_at' => now(),
+    ]);
+}
+
+
+    Mail::to($examCall->teacher->user->email)
+        ->send(new ConfirmConvocatoriaStudentMailable(
+            $examStudent->student,
+            $examStudent,
+            $examCall
+        ));
+
+    return response()->json([
+        'message' => 'Asistencia confirmada correctamente',
+        'exam_student' => $examStudent->load(['examCall', 'examResultStatus'])
+    ]);
+}
 
     public function unconfirmAttendance(Request $request, $examCallId, $studentId)
     {
@@ -723,8 +733,6 @@ class ExamCallsController extends Controller
             'exam_result_status_id' => 4,
         ]);
 
-        $examStudent->delete();
-
         return response()->json([
             'message' => 'Estudiante desaprobado correctamente',
             'exam_student' => $examStudent->load(['examCall', 'examResultStatus'])
@@ -757,6 +765,7 @@ public function listedApprovedStudents($examCallId)
     ])
     ->where('exam_call_id', $examCallId)
     ->where('student_confirmed', true)
+    ->where('exam_result_status_id', 1)
     ->get();
 
     return response()->json($approvedStudents);
@@ -793,7 +802,12 @@ public function removeApprovedStudent(Request $request, $examCallId, $studentId)
             $motive
         ));
 
-    $examStudent->delete();
+    $examStudent->update([
+            'student_confirmed'=> false,
+            'student_confirmed_at'=> null,
+            'exam_result_status_id' => 4,
+            'result_notes' => $motive,
+        ]);
 
     return response()->json([
         'message' => 'Alumno eliminado correctamente de la convocatoria',
@@ -817,10 +831,15 @@ public function listPendingApprovalStudents($examCallId)
 
     $inside = $examCall->examStudents;
 
-    $pendingInside = $inside->filter(fn($s) => !$s->student_confirmed)->values();
+    // 🔥 1. PENDIENTES POR ACEPTAR (dentro de la convocatoria)
+    $pendingInside = $inside->filter(fn($s) =>
+        $s->exam_result_status_id == 1 && !$s->student_confirmed
+    )->values();
 
+    // IDs de alumnos dentro de la convocatoria
     $insideIds = $inside->pluck('student_id')->toArray();
 
+    // 🔥 2. ALUMNOS APTOS (fuera de la convocatoria)
     $studentsReady = StudentSkillEvaluations::where('ready_for_exam', true)
         ->with('studentProfile.user')
         ->get()
@@ -828,7 +847,7 @@ public function listPendingApprovalStudents($examCallId)
         ->unique('id')
         ->values();
 
-    $pendingOutside = $studentsReady
+    $outsideReady = $studentsReady
         ->filter(fn($s) => !in_array($s->id, $insideIds))
         ->map(function ($s) {
             return [
@@ -838,6 +857,25 @@ public function listPendingApprovalStudents($examCallId)
                 'town' => $s->town?->name,
             ];
         })
+        ->values();
+
+    // 🔥 3. ALUMNOS DENTRO CON ESTADO 4 (NO PRESENTADO / RECHAZADO)
+    $rejectedInside = $inside
+        ->filter(fn($s) => $s->exam_result_status_id == 4)
+        ->map(function ($s) {
+            return [
+                'id' => $s->student->id,
+                'name' => $s->student->user->name,
+                'surname' => trim($s->student->user->surname1 . ' ' . $s->student->user->surname2),
+                'town' => $s->student->town?->name,
+            ];
+        })
+        ->values();
+
+    // 🔥 4. UNIR APTOS + RECHAZADOS SIN DUPLICADOS
+    $pendingOutside = $outsideReady
+        ->merge($rejectedInside)
+        ->unique('id')
         ->values();
 
     return response()->json([
