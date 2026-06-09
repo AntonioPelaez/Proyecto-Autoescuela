@@ -11,7 +11,9 @@ use App\Mail\AnadirConvocatoriaNotificationMail;
 use App\Mail\AnadirConvocatoriaStudentNotificationMail;
 use App\Mail\QuitarConvocatoriaStudentNotificationMail;
 use App\Mail\AddedToConvocationMail;
+use App\Mail\AprobarPeticionConvocatoriaProfesorMailable;
 use App\Mail\CancelarConvocatoriaEstudianteMailable;
+use App\Mail\CancelarPeticionConvocatoriaProfesorMailable;
 use App\Mail\CancelConvocatoriaNotificationMail;
 use App\Mail\ConfirmConvocatoriaStudentMailable;
 use App\Mail\FinishConvocatoriaNotificationMail;
@@ -709,6 +711,9 @@ class ExamCallsController extends Controller
             'student_confirmed_at' => now(),
         ]);
 
+         Mail::to($examStudent->student->user->email)
+        ->send(new AprobarPeticionConvocatoriaProfesorMailable($examStudent));
+
         return response()->json([
             'message' => 'Estudiante aprobado correctamente',
             'exam_student' => $examStudent->load(['examCall', 'examResultStatus'])
@@ -732,6 +737,9 @@ class ExamCallsController extends Controller
             'student_confirmed_at' => null,
             'exam_result_status_id' => 4,
         ]);
+
+       Mail::to($examStudent->student->user->email)
+        ->send(new CancelarPeticionConvocatoriaProfesorMailable($examStudent));
 
         return response()->json([
             'message' => 'Estudiante desaprobado correctamente',
