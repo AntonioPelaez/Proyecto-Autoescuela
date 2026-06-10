@@ -20,9 +20,9 @@ class VehicleExpenses extends Model
         return $this->belongsTo(Vehicle::class, 'vehicle_id');
     }
     public function classSession(){
-        return $this->belongsTo(ClassSession::class, 'class_sesion_id');
+        return $this->belongsTo(ClassSession::class, 'class_session_id');
     }
-    public function expenseTypes()
+    public function expenseType()
     {
         return $this->belongsTo(ExpenseTypes::class, 'expense_type_id');
     }

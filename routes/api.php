@@ -322,7 +322,7 @@ Route::middleware('auth:sanctum')->prefix('fuel-logs')->group(function () {
 /**
  * Endpoints de registro de gastos menores del coche
  */
-Route::middleware('auth:sanctum')->prefix('vehicle-expense')->group(function () {
+Route::middleware('auth:sanctum')->prefix('vehicle-expenses')->group(function () {
     Route::get('/', [VehicleExpenseController::class, 'index']);
     Route::post('/', [VehicleExpenseController::class, 'store']);
     Route::get('/{id}', [VehicleExpenseController::class, 'show']);

@@ -31,7 +31,7 @@ class VehicleExpenseController extends Controller
 
     // 🔥 Ya NO hay filtros de fecha
 
-    $expenses = $query->orderBy('date', 'desc')->get();
+    $expenses = $query->orderBy('created_at', 'desc')->get();
 
     return response()->json([
         'vehicle_id' => $request->vehicle_id,
