@@ -26,6 +26,8 @@ class ClassSession extends Model
         'student_comments',
         'internal_notes',
         'cancelled_at',
+        'start_km',
+        'end_km'
     ];
     /* Relaciones */
     public function studentProfile()

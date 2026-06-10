@@ -1,0 +1,125 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\VehicleExpenses;
+use Illuminate\Http\Request;
+
+class VehicleExpenseController extends Controller
+{
+    public function index(Request $request)
+    {
+        $request->validate([
+            'vehicle_id'       => 'required|exists:vehicles,id',
+            'expense_type_id'  => 'nullable|exists:expense_types,id',
+            'expense_type'     => 'nullable|string',
+            'from'             => 'nullable|date',
+            'to'               => 'nullable|date',
+        ]);
+
+        $query = VehicleExpenses::where('vehicle_id', $request->vehicle_id);
+
+        // Filtrar por ID de tipo de gasto
+        if ($request->expense_type_id) {
+            $query->where('expense_type_id', $request->expense_type_id);
+        }
+
+        // Filtrar por nombre del tipo de gasto
+        if ($request->expense_type) {
+            $query->whereHas('expenseType', function ($q) use ($request) {
+                $q->where('name', 'LIKE', '%' . $request->expense_type . '%');
+            });
+        }
+
+        // Filtrar por fecha desde
+        if ($request->from) {
+            $query->whereDate('date', '>=', $request->from);
+        }
+
+        // Filtrar por fecha hasta
+        if ($request->to) {
+            $query->whereDate('date', '<=', $request->to);
+        }
+
+        $expenses = $query->orderBy('date', 'desc')->get();
+
+        return response()->json([
+            'vehicle_id' => $request->vehicle_id,
+            'count'      => $expenses->count(),
+            'expenses'   => $expenses
+        ]);
+    }
+
+
+    /**
+     * Crear un gasto menor
+     */
+    public function store(Request $request)
+    {
+        $request->validate([
+            'vehicle_id'      => 'required|exists:vehicles,id',
+            'expense_type_id' => 'nullable|exists:expense_types,id',
+            'date'            => 'required|date',
+            'amount'          => 'required|numeric|min:0',
+            'description'     => 'nullable|string|max:500',
+        ]);
+
+        $expense = VehicleExpenses::create([
+            'vehicle_id'      => $request->vehicle_id,
+            'expense_type_id' => $request->expense_type_id,
+            'date'            => $request->date,
+            'amount'          => $request->amount,
+            'description'     => $request->description,
+        ]);
+
+        return response()->json([
+            'message' => 'Gasto registrado correctamente',
+            'expense' => $expense
+        ], 201);
+    }
+
+    /**
+     * Mostrar un gasto concreto
+     */
+    public function show($id)
+    {
+        $expense = VehicleExpenses::findOrFail($id);
+
+        return response()->json($expense);
+    }
+
+    /**
+     * Actualizar un gasto
+     */
+    public function update(Request $request, $id)
+    {
+        $expense = VehicleExpenses::findOrFail($id);
+
+        $request->validate([
+            'expense_type_id' => 'nullable|exists:expense_types,id',
+            'date'            => 'sometimes|date',
+            'amount'          => 'sometimes|numeric|min:0',
+            'description'     => 'nullable|string|max:500',
+        ]);
+
+        $expense->update($request->all());
+
+        return response()->json([
+            'message' => 'Gasto actualizado correctamente',
+            'expense' => $expense
+        ]);
+    }
+
+    /**
+     * Eliminar un gasto
+     */
+    public function destroy($id)
+    {
+        $expense = VehicleExpenses::findOrFail($id);
+        $expense->delete();
+
+        return response()->json([
+            'message' => 'Gasto eliminado correctamente'
+        ]);
+    }
+}

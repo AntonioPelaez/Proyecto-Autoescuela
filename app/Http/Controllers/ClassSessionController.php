@@ -271,6 +271,8 @@ class ClassSessionController extends Controller
         'date'       => 'required|date',
         'start'      => 'required|date_format:Y-m-d H:i:s',
         'end'        => 'required|date_format:Y-m-d H:i:s',
+        'start_km'   => 'nullable|integer',
+        'end_km'   =>   'nullable|integer',
     ]);
 
     return DB::transaction(function () use ($request) {
@@ -322,6 +324,8 @@ class ClassSessionController extends Controller
             'end_time'           => $end->format('H:i:s'),
             'slot_starts_at'     => $start,
             'slot_ends_at'       => $end,
+            'start_km'           => $request->start_km,
+            'end_km'             => $request->end_km,
             'status'             => 'confirmed',
             'payment_status'     => 'pending',
             'price'              => $price,
@@ -451,6 +455,8 @@ class ClassSessionController extends Controller
             'skills.*.score' => 'required|integer|min:0|max:10',
             'ready_for_exam' => 'required|boolean',
             'notes' => 'nullable|string',
+            'start_km' => 'nullable|integer',
+            'end_km'   => 'nullable|integer',
         ]);
 
         return DB::transaction(function () use ($request) {
@@ -465,8 +471,11 @@ class ClassSessionController extends Controller
             }
 
             $session->update([
-                'status' => 'completed'
-            ]);
+    'status'   => 'completed',
+    'start_km' => $request->start_km ?? $session->start_km,   // 👈 NUEVO
+    'end_km'   => $request->end_km ?? $session->end_km,       // 👈 NUEVO
+]);
+
 
             // 2. Crear evaluación general de la clase
         $evaluation = StudentSkillEvaluations::create([
