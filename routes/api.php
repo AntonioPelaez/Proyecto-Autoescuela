@@ -336,6 +336,7 @@ Route::middleware('auth:sanctum')->prefix('dashboard')->group(function () {
     Route::get('/{vehicleId}/resumen-general', [CuadroMandoVehiculosController::class, 'resumenGeneral']);
     Route::get('/{vehicleId}/coste-mensual', [CuadroMandoVehiculosController::class, 'costeMensual']);
     Route::get('/{vehicleId}/informe-simple', [CuadroMandoVehiculosController::class, 'informeAdministracion']);
+    Route::get('/gasto-gasolina-total', [CuadroMandoVehiculosController::class, 'gastoGasolinaTotalMes']);
 });
 /**
  * Endpoint para que el admin pueda consultar las habilidades de conducción de los estudiantes, con filtros por habilidad y estado de preparación para el examen.

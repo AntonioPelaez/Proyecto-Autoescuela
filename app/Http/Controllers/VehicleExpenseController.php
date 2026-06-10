@@ -59,6 +59,7 @@ class VehicleExpenseController extends Controller
         $request->validate([
             'vehicle_id'      => 'required|exists:vehicles,id',
             'expense_type_id' => 'nullable|exists:expense_types,id',
+            'class_session_id' => 'required|exists:class_sessions,id',
             'date'            => 'required|date',
             'amount'          => 'required|numeric|min:0',
             'description'     => 'nullable|string|max:500',
@@ -66,6 +67,7 @@ class VehicleExpenseController extends Controller
 
         $expense = VehicleExpenses::create([
             'vehicle_id'      => $request->vehicle_id,
+            'class_session_id'=> $request->class_session_id,
             'expense_type_id' => $request->expense_type_id,
             'date'            => $request->date,
             'amount'          => $request->amount,

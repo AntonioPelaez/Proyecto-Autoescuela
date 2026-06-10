@@ -126,6 +126,30 @@ class CuadroMandoVehiculosController extends Controller
             'status'          => $profit > 0 ? 'Rentable' : 'No rentable',
         ]);
     }
+    /**
+     * Funcionalidad de añadir gasto mensual en un determinado coche 
+     */
+    public function gastoGasolinaTotalMes(Request $request)
+{
+    $request->validate([
+        'month' => 'nullable|date_format:Y-m'
+    ]);
+
+    $month = $request->month
+        ? Carbon::parse($request->month . '-01')
+        : Carbon::now()->startOfMonth();
+
+    $start = $month->copy()->startOfMonth();
+    $end   = $month->copy()->endOfMonth();
+
+    $fuelExpenses = \App\Models\FuelLogs::whereBetween('date', [$start, $end])
+        ->sum('amount');
+
+    return response()->json([
+        'month'          => $start->format('Y-m'),
+        'fuel_expenses'  => $fuelExpenses
+    ]);
+}
 
 
 }
