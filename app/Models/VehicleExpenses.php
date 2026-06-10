@@ -12,7 +12,6 @@ class VehicleExpenses extends Model
         'vehicle_id',
         'class_session_id',
         'expense_type_id',
-        'date',
         'amount',
         'description'
     ];

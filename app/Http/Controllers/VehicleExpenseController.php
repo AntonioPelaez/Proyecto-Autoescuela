@@ -8,48 +8,37 @@ use Illuminate\Http\Request;
 class VehicleExpenseController extends Controller
 {
     public function index(Request $request)
-    {
-        $request->validate([
-            'vehicle_id'       => 'required|exists:vehicles,id',
-            'expense_type_id'  => 'nullable|exists:expense_types,id',
-            'expense_type'     => 'nullable|string',
-            'from'             => 'nullable|date',
-            'to'               => 'nullable|date',
-        ]);
+{
+    $request->validate([
+        'vehicle_id'       => 'required|exists:vehicles,id',
+        'expense_type_id'  => 'nullable|exists:expense_types,id',
+        'expense_type'     => 'nullable|string',
+    ]);
 
-        $query = VehicleExpenses::where('vehicle_id', $request->vehicle_id);
+    $query = VehicleExpenses::where('vehicle_id', $request->vehicle_id);
 
-        // Filtrar por ID de tipo de gasto
-        if ($request->expense_type_id) {
-            $query->where('expense_type_id', $request->expense_type_id);
-        }
-
-        // Filtrar por nombre del tipo de gasto
-        if ($request->expense_type) {
-            $query->whereHas('expenseType', function ($q) use ($request) {
-                $q->where('name', 'LIKE', '%' . $request->expense_type . '%');
-            });
-        }
-
-        // Filtrar por fecha desde
-        if ($request->from) {
-            $query->whereDate('date', '>=', $request->from);
-        }
-
-        // Filtrar por fecha hasta
-        if ($request->to) {
-            $query->whereDate('date', '<=', $request->to);
-        }
-
-        $expenses = $query->orderBy('date', 'desc')->get();
-
-        return response()->json([
-            'vehicle_id' => $request->vehicle_id,
-            'count'      => $expenses->count(),
-            'expenses'   => $expenses
-        ]);
+    // Filtrar por ID de tipo de gasto
+    if ($request->expense_type_id) {
+        $query->where('expense_type_id', $request->expense_type_id);
     }
 
+    // Filtrar por nombre del tipo de gasto
+    if ($request->expense_type) {
+        $query->whereHas('expenseType', function ($q) use ($request) {
+            $q->where('name', 'LIKE', '%' . $request->expense_type . '%');
+        });
+    }
+
+    // 🔥 Ya NO hay filtros de fecha
+
+    $expenses = $query->orderBy('date', 'desc')->get();
+
+    return response()->json([
+        'vehicle_id' => $request->vehicle_id,
+        'count'      => $expenses->count(),
+        'expenses'   => $expenses
+    ]);
+}
 
     /**
      * Crear un gasto menor
@@ -60,7 +49,6 @@ class VehicleExpenseController extends Controller
             'vehicle_id'      => 'required|exists:vehicles,id',
             'expense_type_id' => 'nullable|exists:expense_types,id',
             'class_session_id' => 'required|exists:class_sessions,id',
-            'date'            => 'required|date',
             'amount'          => 'required|numeric|min:0',
             'description'     => 'nullable|string|max:500',
         ]);
@@ -69,7 +57,6 @@ class VehicleExpenseController extends Controller
             'vehicle_id'      => $request->vehicle_id,
             'class_session_id'=> $request->class_session_id,
             'expense_type_id' => $request->expense_type_id,
-            'date'            => $request->date,
             'amount'          => $request->amount,
             'description'     => $request->description,
         ]);
@@ -99,7 +86,6 @@ class VehicleExpenseController extends Controller
 
         $request->validate([
             'expense_type_id' => 'nullable|exists:expense_types,id',
-            'date'            => 'sometimes|date',
             'amount'          => 'sometimes|numeric|min:0',
             'description'     => 'nullable|string|max:500',
         ]);
