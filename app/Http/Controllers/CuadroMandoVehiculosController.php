@@ -87,7 +87,29 @@ class CuadroMandoVehiculosController extends Controller
         'total_expenses' => $totalExpenses,
     ]);
 }
+/**
+ * Funcionalidad que calcula los ingresos mensaules de las clases
+ * que se han dado ese mes
+ */
+public function ingresosMensuales(Request $request, $vehicleId)
+{
+    $request->validate([
+        'month' => 'required|date_format:Y-m'
+    ]);
 
+    $month = Carbon::parse($request->month . '-01');
+    $start = $month->copy()->startOfMonth();
+    $end   = $month->copy()->endOfMonth();
+
+    $classCount = ClassSession::where('vehicle_id', $vehicleId)
+        ->where('status', 'completed')
+        ->whereBetween('session_date', [$start, $end])
+        ->count();
+
+    return response()->json([
+        'income' => $classCount * 25
+    ]);
+}
 
 
     /**
