@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ClassSession;
 use App\Models\VehicleExpenses;
 use Illuminate\Http\Request;
 
@@ -72,14 +73,31 @@ class VehicleExpenseController extends Controller
      */
 public function show($id)
 {
-    // Buscar gastos por class_session_id
-    $expenses = VehicleExpenses::where('class_session_id', $id)->get();
+    // 1) ¿Existe un gasto con ese ID?
+    $expense = VehicleExpenses::find($id);
+
+    if ($expense) {
+        // Entonces el ID recibido es un expense_id
+        $classSessionId = $expense->class_session_id;
+    } else {
+        // Entonces el ID recibido es un class_session_id
+        $classSessionId = $id;
+    }
+
+    // 2) Obtener todos los gastos de esa clase
+    $expenses = VehicleExpenses::where('class_session_id', $classSessionId)->get();
+
+    // 3) Obtener el vehículo de la clase
+    $class = \App\Models\ClassSession::find($classSessionId);
 
     return response()->json([
-        'class_session_id' => $id,
-        'expenses' => $expenses
+        'class_session_id' => $classSessionId,
+        'vehicle_id'       => $class?->vehicle_id,
+        'expenses'         => $expenses
     ]);
 }
+
+
 
 
     /**
