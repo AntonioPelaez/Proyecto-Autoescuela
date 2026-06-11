@@ -54,39 +54,41 @@ class CuadroMandoVehiculosController extends Controller
      * - Gastos menores del mes
      * - Gasto total del mes
      */
-    public function costeMensual(Request $request, $vehicleId)
-    {
-        $request->validate([
-            'month' => 'nullable|date_format:Y-m'
-        ]);
+   public function costeMensual(Request $request, $vehicleId)
+{
+    $request->validate([
+        'month' => 'nullable|date_format:Y-m'
+    ]);
 
-        $month = $request->month
-            ? Carbon::parse($request->month . '-01')
-            : Carbon::now()->startOfMonth();
+    $month = $request->month
+        ? Carbon::parse($request->month . '-01')
+        : Carbon::now()->startOfMonth();
 
-        $start = $month->copy()->startOfMonth();
-        $end   = $month->copy()->endOfMonth();
+    $start = $month->copy()->startOfMonth();
+    $end   = $month->copy()->endOfMonth();
 
-        // Gastos de combustible del mes
-        $fuelExpenses = FuelLogs::where('vehicle_id', $vehicleId)
-            ->whereBetween('date', [$start, $end])
-            ->sum('amount');
+    // Gasolina
+    $fuelExpenses = FuelLogs::where('vehicle_id', $vehicleId)
+        ->whereBetween('date', [$start, $end])
+        ->sum('amount') ?? 0;
 
-        // Gastos menores del mes
-        $otherExpenses = VehicleExpenses::where('vehicle_id', $vehicleId)
-            ->whereBetween('date', [$start, $end])
-            ->sum('amount');
+    // Gastos menores
+    $otherExpenses = VehicleExpenses::where('vehicle_id', $vehicleId)
+        ->whereBetween('created_at', [$start, $end])
+        ->sum('amount') ?? 0;
 
-        $totalExpenses = $fuelExpenses + $otherExpenses;
+    $totalExpenses = $fuelExpenses + $otherExpenses;
 
-        return response()->json([
-            'vehicle_id'     => $vehicleId,
-            'month'          => $start->format('Y-m'),
-            'fuel_expenses'  => $fuelExpenses,
-            'other_expenses' => $otherExpenses,
-            'total_expenses' => $totalExpenses,
-        ]);
-    }
+    return response()->json([
+        'vehicle_id'     => $vehicleId,
+        'month'          => $start->format('Y-m'),
+        'fuel_expenses'  => $fuelExpenses,
+        'other_expenses' => $otherExpenses,
+        'total_expenses' => $totalExpenses,
+    ]);
+}
+
+
 
     /**
      * INFORME SIMPLE PARA ADMINISTRACIÓN
@@ -129,7 +131,7 @@ class CuadroMandoVehiculosController extends Controller
     /**
      * Funcionalidad de añadir gasto mensual en un determinado coche 
      */
-    public function gastoGasolinaTotalMes(Request $request)
+public function gastoGasolinaTotalMes(Request $request)
 {
     $request->validate([
         'month' => 'nullable|date_format:Y-m'
@@ -142,12 +144,22 @@ class CuadroMandoVehiculosController extends Controller
     $start = $month->copy()->startOfMonth();
     $end   = $month->copy()->endOfMonth();
 
-    $fuelExpenses = \App\Models\FuelLogs::whereBetween('date', [$start, $end])
+    // 🔥 1. GASTO GASOLINA (FuelLogs SÍ tiene columna date)
+    $fuelExpenses = FuelLogs::whereBetween('date', [$start, $end])
         ->sum('amount');
 
+    // 🔥 2. GASTO MANTENIMIENTO (VehicleExpenses NO tiene date → usamos created_at)
+    $maintenanceExpenses = VehicleExpenses::whereBetween('created_at', [$start, $end])
+        ->sum('amount');
+
+    // 🔥 3. TOTAL
+    $total = $fuelExpenses + $maintenanceExpenses;
+
     return response()->json([
-        'month'          => $start->format('Y-m'),
-        'fuel_expenses'  => $fuelExpenses
+        'month'                 => $start->format('Y-m'),
+        'fuel_expenses'         => $fuelExpenses,
+        'maintenance_expenses'  => $maintenanceExpenses,
+        'total_expenses'        => $total
     ]);
 }
 
