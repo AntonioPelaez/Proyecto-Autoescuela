@@ -70,12 +70,17 @@ class VehicleExpenseController extends Controller
     /**
      * Mostrar un gasto concreto
      */
-    public function show($id)
-    {
-        $expense = VehicleExpenses::findOrFail($id);
+public function show($id)
+{
+    // Buscar gastos por class_session_id
+    $expenses = VehicleExpenses::where('class_session_id', $id)->get();
 
-        return response()->json($expense);
-    }
+    return response()->json([
+        'class_session_id' => $id,
+        'expenses' => $expenses
+    ]);
+}
+
 
     /**
      * Actualizar un gasto

@@ -7,31 +7,48 @@ use Illuminate\Http\Request;
 
 class FuelLogsController extends Controller
 {
-    public function index(Request $request){
-         $request->validate([
-            'vehicle_id' => 'required|exists:vehicles,id',
-            'from'       => 'nullable|date',
-            'to'         => 'nullable|date',
-        ]);
+    public function index(Request $request)
+{
+    $request->validate([
+        'vehicle_id' => 'nullable|exists:vehicles,id',
+        'month'      => 'nullable|date_format:Y-m',
+        'from'       => 'nullable|date',
+        'to'         => 'nullable|date',
+    ]);
 
-        $query = FuelLogs::where('vehicle_id', $request->vehicle_id);
+    $query = FuelLogs::query()->with('vehicle');
 
-        if ($request->from) {
-            $query->whereDate('date', '>=', $request->from);
-        }
-
-        if ($request->to) {
-            $query->whereDate('date', '<=', $request->to);
-        }
-
-        $logs = $query->orderBy('date', 'desc')->get();
-
-        return response()->json([
-            'vehicle_id' => $request->vehicle_id,
-            'count'      => $logs->count(),
-            'fuel_logs'  => $logs
-        ]);
+    // Filtrar por vehículo si se envía
+    if ($request->vehicle_id) {
+        $query->where('vehicle_id', $request->vehicle_id);
     }
+
+    // Filtrar por mes
+    if ($request->month) {
+        $year = substr($request->month, 0, 4);
+        $month = substr($request->month, 5, 2);
+
+        $query->whereYear('date', $year)
+              ->whereMonth('date', $month);
+    }
+
+    // Filtrar por rango si se envía
+    if ($request->from) {
+        $query->whereDate('date', '>=', $request->from);
+    }
+
+    if ($request->to) {
+        $query->whereDate('date', '<=', $request->to);
+    }
+
+    $logs = $query->orderBy('date', 'desc')->get();
+
+    return response()->json([
+        'count'      => $logs->count(),
+        'fuel_logs'  => $logs
+    ]);
+}
+
 
     public function store(Request $request)
     {
