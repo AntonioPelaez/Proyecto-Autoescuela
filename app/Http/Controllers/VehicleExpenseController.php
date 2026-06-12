@@ -8,20 +8,16 @@ use Illuminate\Http\Request;
 
 class VehicleExpenseController extends Controller
 {
-    public function index(Request $request)
+    /**
+     * Listar todos los gastos del vehículo
+     */
+    public function index()
     {
-        $request->validate([
-            'vehicle_id'       => 'required|exists:vehicles,id',
-        ]);
-
-        $query = VehicleExpenses::where('vehicle_id', $request->vehicle_id);
-
-        $expenses = $query->orderBy('created_at', 'desc')->get();
+        $expenses = VehicleExpenses::orderBy('created_at', 'desc')->get();
 
         return response()->json([
-            'vehicle_id' => $request->vehicle_id,
-            'count'      => $expenses->count(),
-            'expenses'   => $expenses
+            'count'    => $expenses->count(),
+            'expenses' => $expenses
         ]);
     }
 
