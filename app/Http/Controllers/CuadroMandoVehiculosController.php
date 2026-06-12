@@ -20,8 +20,9 @@ class CuadroMandoVehiculosController extends Controller
 public function resumenGeneral(Request $request, $vehicleId)
 {
     // Normalizar fechas dd/mm/YYYY → YYYY-MM-DD
-    $from = $request->from ? Carbon::createFromFormat('d/m/Y', $request->from)->format('Y-m-d') : null;
-    $to   = $request->to   ? Carbon::createFromFormat('d/m/Y', $request->to)->format('Y-m-d') : null;
+    $from = $request->from ? Carbon::parse($request->from)->format('Y-m-d') : null;
+    $to   = $request->to   ? Carbon::parse($request->to)->format('Y-m-d') : null;
+
 
     // Si hay rango completo → filtrar por periodo
     if ($from && $to) {
