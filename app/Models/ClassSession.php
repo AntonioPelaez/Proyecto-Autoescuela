@@ -75,8 +75,4 @@ class ClassSession extends Model
     {
         return $this->hasOne(StudentSkillEvaluations::class, 'class_session_id');
     }
-
-    public function vehicleExpenses(){
-        return $this->hasOne(VehicleExpenses::class, 'class_session_id');
-    }
 }

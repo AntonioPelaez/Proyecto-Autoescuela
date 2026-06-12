@@ -9,37 +9,21 @@ use Illuminate\Http\Request;
 class VehicleExpenseController extends Controller
 {
     public function index(Request $request)
-{
-    $request->validate([
-        'vehicle_id'       => 'required|exists:vehicles,id',
-        'expense_type_id'  => 'nullable|exists:expense_types,id',
-        'expense_type'     => 'nullable|string',
-    ]);
+    {
+        $request->validate([
+            'vehicle_id'       => 'required|exists:vehicles,id',
+        ]);
 
-    $query = VehicleExpenses::where('vehicle_id', $request->vehicle_id);
+        $query = VehicleExpenses::where('vehicle_id', $request->vehicle_id);
 
-    // Filtrar por ID de tipo de gasto
-    if ($request->expense_type_id) {
-        $query->where('expense_type_id', $request->expense_type_id);
+        $expenses = $query->orderBy('created_at', 'desc')->get();
+
+        return response()->json([
+            'vehicle_id' => $request->vehicle_id,
+            'count'      => $expenses->count(),
+            'expenses'   => $expenses
+        ]);
     }
-
-    // Filtrar por nombre del tipo de gasto
-    if ($request->expense_type) {
-        $query->whereHas('expenseType', function ($q) use ($request) {
-            $q->where('name', 'LIKE', '%' . $request->expense_type . '%');
-        });
-    }
-
-    // 🔥 Ya NO hay filtros de fecha
-
-    $expenses = $query->orderBy('created_at', 'desc')->get();
-
-    return response()->json([
-        'vehicle_id' => $request->vehicle_id,
-        'count'      => $expenses->count(),
-        'expenses'   => $expenses
-    ]);
-}
 
     /**
      * Crear un gasto menor
@@ -48,16 +32,12 @@ class VehicleExpenseController extends Controller
     {
         $request->validate([
             'vehicle_id'      => 'required|exists:vehicles,id',
-            'expense_type_id' => 'nullable|exists:expense_types,id',
-            'class_session_id' => 'required|exists:class_sessions,id',
             'amount'          => 'required|numeric|min:0',
             'description'     => 'nullable|string|max:500',
         ]);
 
         $expense = VehicleExpenses::create([
             'vehicle_id'      => $request->vehicle_id,
-            'class_session_id'=> $request->class_session_id,
-            'expense_type_id' => $request->expense_type_id,
             'amount'          => $request->amount,
             'description'     => $request->description,
         ]);
@@ -71,31 +51,13 @@ class VehicleExpenseController extends Controller
     /**
      * Mostrar un gasto concreto
      */
-public function show($id)
-{
-    // 1) ¿Existe un gasto con ese ID?
-    $expense = VehicleExpenses::find($id);
+    public function show($id)
+    {
+        $expense = VehicleExpenses::findOrFail($id);
 
-    if ($expense) {
-        // Entonces el ID recibido es un expense_id
-        $classSessionId = $expense->class_session_id;
-    } else {
-        // Entonces el ID recibido es un class_session_id
-        $classSessionId = $id;
+        return response()->json($expense);
     }
 
-    // 2) Obtener todos los gastos de esa clase
-    $expenses = VehicleExpenses::where('class_session_id', $classSessionId)->get();
-
-    // 3) Obtener el vehículo de la clase
-    $class = \App\Models\ClassSession::find($classSessionId);
-
-    return response()->json([
-        'class_session_id' => $classSessionId,
-        'vehicle_id'       => $class?->vehicle_id,
-        'expenses'         => $expenses
-    ]);
-}
 
 
 
@@ -108,7 +70,6 @@ public function show($id)
         $expense = VehicleExpenses::findOrFail($id);
 
         $request->validate([
-            'expense_type_id' => 'nullable|exists:expense_types,id',
             'amount'          => 'sometimes|numeric|min:0',
             'description'     => 'nullable|string|max:500',
         ]);

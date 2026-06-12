@@ -24,8 +24,7 @@ class DatabaseSeeder extends Seeder
             TypeIncidentsSeeder::class,
             DrivingSkillsSeeder::class,
             ExamCallStatusSeeder::class,
-            ExamResultStatusSeeder::class,
-            ExpenseTypesSeeder::class,
+            ExamResultStatusSeeder::class
         ]);
     }
 }
