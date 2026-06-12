@@ -10,20 +10,11 @@ class VehicleExpenses extends Model
 
     protected $fillable = [
         'vehicle_id',
-        'class_session_id',
-        'expense_type_id',
         'amount',
         'description'
     ];
     public function vehicle()
     {
         return $this->belongsTo(Vehicle::class, 'vehicle_id');
-    }
-    public function classSession(){
-        return $this->belongsTo(ClassSession::class, 'class_session_id');
-    }
-    public function expenseType()
-    {
-        return $this->belongsTo(ExpenseTypes::class, 'expense_type_id');
     }
 }

@@ -22,7 +22,6 @@ use App\Http\Controllers\DrivingSkillsController;
 use App\Http\Controllers\ExamCallsController;
 use App\Http\Controllers\ExamResultStatusController;
 use App\Http\Controllers\ExamCallStatusController;
-use App\Http\Controllers\ExpenseTypesController;
 use App\Http\Controllers\FuelLogsController;
 use App\Http\Controllers\VehicleExpenseController;
 
@@ -304,11 +303,6 @@ Route::middleware('auth:sanctum')->prefix('exam-calls')->group(function () {
 Route::get('/exam-result-statuses', [ExamResultStatusController::class, 'index'])->middleware('auth:sanctum');
 Route::get('/exam-call-statuses', [ExamCallStatusController::class, 'index'])->middleware('auth:sanctum');
 
-
-/**
- * Endpoint que devuelve los tipos de gastos menores que tiene el coche
- */
-Route::get('/expense-types', [ExpenseTypesController::class, 'index'])->middleware('auth:sanctum');
 /**
  * Endpoints de registro de combustibles
  */
