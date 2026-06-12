@@ -11,6 +11,7 @@ class FuelLogsController extends Controller
 {
     $request->validate([
         'vehicle_id' => 'nullable|exists:vehicles,id',
+        'year'       => 'nullable|digits:4',
         'month'      => 'nullable|date_format:Y-m',
         'from'       => 'nullable|date',
         'to'         => 'nullable|date',
@@ -18,27 +19,38 @@ class FuelLogsController extends Controller
 
     $query = FuelLogs::query()->with('vehicle');
 
-    // Filtrar por vehículo si se envía
+    // Filtrar por vehículo
     if ($request->vehicle_id) {
         $query->where('vehicle_id', $request->vehicle_id);
     }
 
-    // Filtrar por mes
-    if ($request->month) {
-        $year = substr($request->month, 0, 4);
+    // ─────────────────────────────────────────────
+    // PRIORIDAD DE FILTROS:
+    // 1) RANGO (from/to)
+    // 2) MES (YYYY-MM)
+    // 3) AÑO (YYYY)
+    // 4) DÍA (from == to)
+    // ─────────────────────────────────────────────
+
+    // 1. FILTRO POR RANGO
+    if ($request->from && $request->to) {
+        $query->whereBetween('date', [$request->from, $request->to]);
+    }
+    // 2. FILTRO POR MES
+    elseif ($request->month) {
+        $year  = substr($request->month, 0, 4);
         $month = substr($request->month, 5, 2);
 
         $query->whereYear('date', $year)
               ->whereMonth('date', $month);
     }
-
-    // Filtrar por rango si se envía
-    if ($request->from) {
-        $query->whereDate('date', '>=', $request->from);
+    // 3. FILTRO POR AÑO
+    elseif ($request->year) {
+        $query->whereYear('date', $request->year);
     }
-
-    if ($request->to) {
-        $query->whereDate('date', '<=', $request->to);
+    // 4. FILTRO POR DÍA (si from == to)
+    elseif ($request->from && !$request->to) {
+        $query->whereDate('date', $request->from);
     }
 
     $logs = $query->orderBy('date', 'desc')->get();

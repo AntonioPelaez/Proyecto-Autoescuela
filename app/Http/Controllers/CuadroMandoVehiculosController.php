@@ -18,35 +18,68 @@ class CuadroMandoVehiculosController extends Controller
      * - Indicador rentable/no rentable
      */
     public function resumenGeneral($vehicleId)
-    {
-        // 1. INGRESOS DEL VEHÍCULO (clases × 25€)
-        $classCount = ClassSession::where('vehicle_id', $vehicleId)
-            ->where('status', 'completed')
-            ->count();
+{
+    // 1. Fecha de la primera clase impartida con este vehículo
+    $firstClassDate = ClassSession::where('vehicle_id', $vehicleId)
+        ->where('status', 'completed')
+        ->orderBy('session_date', 'asc')
+        ->value('session_date');
 
-        $income = $classCount * 25; // Precio fijo por clase
-
-        // 2. GASTOS DEL VEHÍCULO
-        $fuelExpenses = FuelLogs::where('vehicle_id', $vehicleId)->sum('amount');
-        $otherExpenses = VehicleExpenses::where('vehicle_id', $vehicleId)->sum('amount');
-
-        $totalExpenses = $fuelExpenses + $otherExpenses;
-
-        // 3. RENTABILIDAD
-        $profit = $income - $totalExpenses;
-
+    // Si nunca ha dado clases → no hay rentabilidad
+    if (!$firstClassDate) {
         return response()->json([
             'vehicle_id'      => $vehicleId,
-            'classes_given'   => $classCount,
-            'income'          => $income,
-            'fuel_expenses'   => $fuelExpenses,
-            'other_expenses'  => $otherExpenses,
-            'total_expenses'  => $totalExpenses,
-            'profit'          => $profit,
-            'is_profitable'   => $profit > 0,
-            'status'          => $profit > 0 ? 'Rentable' : 'No rentable',
+            'classes_given'   => 0,
+            'income'          => 0,
+            'fuel_expenses'   => 0,
+            'other_expenses'  => 0,
+            'total_expenses'  => 0,
+            'profit'          => 0,
+            'is_profitable'   => false,
+            'status'          => 'No rentable',
+            'since'           => null,
         ]);
     }
+
+    $start = Carbon::parse($firstClassDate);
+    $end = Carbon::now();
+
+    // 2. INGRESOS desde la primera clase
+    $classCount = ClassSession::where('vehicle_id', $vehicleId)
+        ->where('status', 'completed')
+        ->whereBetween('session_date', [$start, $end])
+        ->count();
+
+    $income = $classCount * 25;
+
+    // 3. GASTOS desde la primera clase
+    $fuelExpenses = FuelLogs::where('vehicle_id', $vehicleId)
+        ->whereBetween('date', [$start, $end])
+        ->sum('amount');
+
+    $otherExpenses = VehicleExpenses::where('vehicle_id', $vehicleId)
+        ->whereBetween('created_at', [$start, $end])
+        ->sum('amount');
+
+    $totalExpenses = $fuelExpenses + $otherExpenses;
+
+    // 4. RENTABILIDAD
+    $profit = $income - $totalExpenses;
+
+    return response()->json([
+        'vehicle_id'      => $vehicleId,
+        'classes_given'   => $classCount,
+        'income'          => $income,
+        'fuel_expenses'   => $fuelExpenses,
+        'other_expenses'  => $otherExpenses,
+        'total_expenses'  => $totalExpenses,
+        'profit'          => $profit,
+        'is_profitable'   => $profit > 0,
+        'status'          => $profit > 0 ? 'Rentable' : 'No rentable',
+        'since'           => $start->format('Y-m-d'),
+    ]);
+}
+
 
     /**
      * COSTE MENSUAL AUTOMÁTICO
