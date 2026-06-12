@@ -10,9 +10,10 @@ use App\Http\Controllers\TeacherAvailabiltyExceptionsController;
 use App\Http\Controllers\ClassSessionController;
 use App\Http\Controllers\ClassController;
 use App\Http\Controllers\AdminClassController;
+use App\Http\Controllers\CuadroMandoVehiculosController;
 use App\Http\Controllers\TeacherProfileController;
 use App\Http\Controllers\VehicleController;
-use App\Http\Controllers\StudentProfileController; 
+use App\Http\Controllers\StudentProfileController;
 use App\Http\Controllers\TeacherClassController;
 use App\Http\Controllers\IncidentsController;
 use App\Http\Controllers\PaymentController;
@@ -21,6 +22,10 @@ use App\Http\Controllers\DrivingSkillsController;
 use App\Http\Controllers\ExamCallsController;
 use App\Http\Controllers\ExamResultStatusController;
 use App\Http\Controllers\ExamCallStatusController;
+use App\Http\Controllers\ExpenseTypesController;
+use App\Http\Controllers\FuelLogsController;
+use App\Http\Controllers\VehicleExpenseController;
+
 /*
 |--------------------------------------------------------------------------
 | Rutas de Autenticación (/api/auth/...)
@@ -105,6 +110,7 @@ Route::middleware('auth:sanctum')->prefix('vehicles')->group(function () {
     Route::put('/{vehicle}', [VehicleController::class, 'update']);
     Route::delete('/{vehicle}', [VehicleController::class, 'destroy']);
     Route::post('/', [VehicleController::class, 'store']);
+    Route::get('/{vehicleId}/history', [VehicleController::class, 'history']);
 });
 
 /** 
@@ -121,7 +127,6 @@ Route::middleware('auth:sanctum')->prefix('students')->group(function () {
     Route::get('/{id}/notes', [StudentProfileController::class, 'notes']);
     Route::put('/{id}/notes', [StudentProfileController::class, 'saveNotes']);
     Route::put('/{student}/password', [StudentProfileController::class, 'changePassword']);
-
 });
 /**
  * Ruta que permite a un alumno autenticado consultar sus clases reservadas, con detalles del profesor y pueblo.
@@ -156,7 +161,7 @@ Route::middleware('auth:sanctum')->prefix('teacher-weekly-availabilities')->grou
 /**
  * Gestor de incidencias
  */
-Route::middleware('auth:sanctum')->prefix('incidents')->group(function(){
+Route::middleware('auth:sanctum')->prefix('incidents')->group(function () {
     Route::get('/', [IncidentsController::class, 'index']);
     Route::post('/', [IncidentsController::class, 'store']);
     Route::get('/{incident}', [IncidentsController::class, 'show']);
@@ -241,7 +246,7 @@ Route::middleware('auth:sanctum')->prefix('payments')->group(function () {
 
     // Recarga de monedero
     Route::post('/recharge', [PaymentController::class, 'recharge']);
-    
+
     // Retirar saldo
     Route::post('/withdraw', [PaymentController::class, 'retirarSaldo']);
     // Descargar ticket en PDF
@@ -291,7 +296,7 @@ Route::middleware('auth:sanctum')->prefix('exam-calls')->group(function () {
     Route::get('/pending-approval-students/{examCallId}', [ExamCallsController::class, 'listPendingApprovalStudents']);
     Route::post('/{examCallId}/students/{studentId}/add-approved', [ExamCallsController::class, 'addApprovedStudent']);
     Route::post('/{examCallId}/students/{studentId}/remove-approved', [ExamCallsController::class, 'removeApprovedStudent']);
-}); 
+});
 
 /**
  * Endpoints que devuelve los estados de resultado de examen y los estados de convocatoria de examen para que el
@@ -299,6 +304,41 @@ Route::middleware('auth:sanctum')->prefix('exam-calls')->group(function () {
 Route::get('/exam-result-statuses', [ExamResultStatusController::class, 'index'])->middleware('auth:sanctum');
 Route::get('/exam-call-statuses', [ExamCallStatusController::class, 'index'])->middleware('auth:sanctum');
 
+
+/**
+ * Endpoint que devuelve los tipos de gastos menores que tiene el coche
+ */
+Route::get('/expense-types', [ExpenseTypesController::class, 'index'])->middleware('auth:sanctum');
+/**
+ * Endpoints de registro de combustibles
+ */
+Route::middleware('auth:sanctum')->prefix('fuel-logs')->group(function () {
+    Route::get('/', [FuelLogsController::class, 'index']);
+    Route::post('/', [FuelLogsController::class, 'store']);
+    Route::get('/{id}', [FuelLogsController::class, 'show']);
+    Route::put('/{id}', [FuelLogsController::class, 'update']);
+    Route::delete('/{id}', [FuelLogsController::class, 'destroy']);
+});
+/**
+ * Endpoints de registro de gastos menores del coche
+ */
+Route::middleware('auth:sanctum')->prefix('vehicle-expenses')->group(function () {
+    Route::get('/', [VehicleExpenseController::class, 'index']);
+    Route::post('/', [VehicleExpenseController::class, 'store']);
+    Route::get('/{id}', [VehicleExpenseController::class, 'show']);
+    Route::put('/{id}', [VehicleExpenseController::class, 'update']);
+    Route::delete('/{id}', [VehicleExpenseController::class, 'destroy']);
+});
+/**
+ * Endpoints para el cuadro de mando de ingresos y gastos del coche por mes
+ */
+Route::middleware('auth:sanctum')->prefix('dashboard')->group(function () {
+    Route::get('/{vehicleId}/resumen-general', [CuadroMandoVehiculosController::class, 'resumenGeneral']);
+    Route::get('/{vehicleId}/coste-mensual', [CuadroMandoVehiculosController::class, 'costeMensual']);
+    Route::get('/{vehicleId}/ingresos-mensuales', [CuadroMandoVehiculosController::class, 'ingresosMensuales']);
+    Route::get('/{vehicleId}/informe-simple', [CuadroMandoVehiculosController::class, 'informeAdministracion']);
+    Route::get('/gasto-gasolina-total', [CuadroMandoVehiculosController::class, 'gastoGasolinaTotalMes']);
+});
 /**
  * Endpoint para que el admin pueda consultar las habilidades de conducción de los estudiantes, con filtros por habilidad y estado de preparación para el examen.
  */
@@ -306,4 +346,3 @@ Route::get('/driving-skills', [DrivingSkillsController::class, 'index'])->middle
 
 // Endpoint para que el admin pueda consultar todas las clases con filtros
 Route::get('/admin/classes', [AdminClassController::class, 'index'])->middleware('auth:sanctum');
-

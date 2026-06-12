@@ -26,6 +26,8 @@ class ClassSession extends Model
         'student_comments',
         'internal_notes',
         'cancelled_at',
+        'start_km',
+        'end_km'
     ];
     /* Relaciones */
     public function studentProfile()
@@ -72,5 +74,9 @@ class ClassSession extends Model
     public function skillEvaluation()
     {
         return $this->hasOne(StudentSkillEvaluations::class, 'class_session_id');
+    }
+
+    public function vehicleExpenses(){
+        return $this->hasOne(VehicleExpenses::class, 'class_session_id');
     }
 }

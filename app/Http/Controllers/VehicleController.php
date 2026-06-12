@@ -108,4 +108,64 @@ class VehicleController extends Controller
             'message' => 'Vehículo eliminado correctamente'
         ]);
     }
+
+    public function history($vehicleId)
+{
+    // Repostajes
+    $fuelLogs = \App\Models\FuelLogs::where('vehicle_id', $vehicleId)
+        ->orderBy('date', 'desc')
+        ->get();
+
+    // Gastos menores
+    $expenses = \App\Models\VehicleExpenses::where('vehicle_id', $vehicleId)
+        ->orderBy('date', 'desc')
+        ->get();
+
+    // Km por clases
+    $classKm = \App\Models\ClassSession::where('vehicle_id', $vehicleId)
+        ->whereNotNull('start_km')
+        ->whereNotNull('end_km')
+        ->orderBy('session_date', 'desc')
+        ->get()
+        ->map(function ($s) {
+            return [
+                'type'        => 'class',
+                'date'        => $s->session_date,
+                'start_km'    => $s->start_km,
+                'end_km'      => $s->end_km,
+                'km_done'     => max(0, $s->end_km - $s->start_km),
+                'student'     => $s->studentProfile->user->name ?? null,
+                'teacher'     => $s->teacherProfile->user->name ?? null,
+            ];
+        });
+
+    // Km por exámenes
+    $examKm = \App\Models\ExamStudents::where('vehicle_id', $vehicleId)
+        ->whereNotNull('start_km')
+        ->whereNotNull('end_km')
+        ->orderBy('created_at', 'desc')
+        ->get()
+        ->map(function ($e) {
+            return [
+                'type'        => 'exam',
+                'date'        => $e->examCall->exam_date ?? null,
+                'start_km'    => $e->start_km,
+                'end_km'      => $e->end_km,
+                'km_done'     => max(0, $e->end_km - $e->start_km),
+                'student'     => $e->student->user->name ?? null,
+                'teacher'     => $e->examCall->teacher->user->name ?? null,
+            ];
+        });
+
+    // Unimos km de clases y exámenes
+    $kmHistory = $classKm->merge($examKm)->sortByDesc('date')->values();
+
+    return response()->json([
+        'vehicle_id' => $vehicleId,
+        'fuel_logs'  => $fuelLogs,
+        'expenses'   => $expenses,
+        'km_history' => $kmHistory,
+    ]);
+}
+
 }

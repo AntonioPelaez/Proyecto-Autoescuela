@@ -11,7 +11,9 @@ use App\Mail\AnadirConvocatoriaNotificationMail;
 use App\Mail\AnadirConvocatoriaStudentNotificationMail;
 use App\Mail\QuitarConvocatoriaStudentNotificationMail;
 use App\Mail\AddedToConvocationMail;
+use App\Mail\AprobarPeticionConvocatoriaProfesorMailable;
 use App\Mail\CancelarConvocatoriaEstudianteMailable;
+use App\Mail\CancelarPeticionConvocatoriaProfesorMailable;
 use App\Mail\CancelConvocatoriaNotificationMail;
 use App\Mail\ConfirmConvocatoriaStudentMailable;
 use App\Mail\FinishConvocatoriaNotificationMail;
@@ -150,6 +152,8 @@ class ExamCallsController extends Controller
                     'exam_result_status_id' => 1,
                     'student_confirmed' => true,
                     'student_confirmed_at' => now(),
+                    'start_km' => $request->start_km ?? null,
+                    'end_km'   => $request->end_km ?? null,
                 ]);
             }
         }
@@ -364,6 +368,8 @@ class ExamCallsController extends Controller
         $request->validate([
             'exam_result_status_id' => 'required|exists:exam_result_statuses,id',
             'result_notes' => 'nullable|string',
+            'start_km' => 'nullable|integer',
+            'end_km'   => 'nullable|integer',
         ]);
 
         $examStudent = ExamStudents::where('exam_call_id', $examCallId)
@@ -380,8 +386,11 @@ class ExamCallsController extends Controller
 
         $examStudent->update([
             'exam_result_status_id' => $request->exam_result_status_id,
-            'result_notes' => $request->result_notes,
+            'result_notes'          => $request->result_notes,
+            'start_km'              => $request->start_km ?? $examStudent->start_km,  // 👈 NUEVO
+            'end_km'                => $request->end_km ?? $examStudent->end_km,      // 👈 NUEVO
         ]);
+
 
         Mail::to($examStudent->student->user->email)
             ->send(new ResultConvocatoriaNotificationMail(
@@ -709,6 +718,9 @@ class ExamCallsController extends Controller
             'student_confirmed_at' => now(),
         ]);
 
+        Mail::to($examStudent->student->user->email)
+            ->send(new AprobarPeticionConvocatoriaProfesorMailable($examStudent));
+
         return response()->json([
             'message' => 'Estudiante aprobado correctamente',
             'exam_student' => $examStudent->load(['examCall', 'examResultStatus'])
@@ -732,6 +744,9 @@ class ExamCallsController extends Controller
             'student_confirmed_at' => null,
             'exam_result_status_id' => 4,
         ]);
+
+        Mail::to($examStudent->student->user->email)
+            ->send(new CancelarPeticionConvocatoriaProfesorMailable($examStudent));
 
         return response()->json([
             'message' => 'Estudiante desaprobado correctamente',
@@ -757,21 +772,21 @@ class ExamCallsController extends Controller
      * el alumno le ha pasado algo y no puede presentarse al examen, o el profesor ha decidido que no lo aprueba.
      * 
      */
-public function listedApprovedStudents($examCallId)
-{
-    $approvedStudents = ExamStudents::with([
+    public function listedApprovedStudents($examCallId)
+    {
+        $approvedStudents = ExamStudents::with([
             'student.user',
             'examResultStatus',
             'examCall.teacher',
             'examCall.vehicle',
         ])
-        ->where('exam_call_id', $examCallId)
-        ->where('student_confirmed', true)   // 👈 SOLO aceptados por profesor
-        ->whereIn('exam_result_status_id', [1, 2, 3])
-        ->get();
+            ->where('exam_call_id', $examCallId)
+            ->where('student_confirmed', true)   // 👈 SOLO aceptados por profesor
+            ->whereIn('exam_result_status_id', [1, 2, 3])
+            ->get();
 
-    return response()->json($approvedStudents);
-}
+        return response()->json($approvedStudents);
+    }
 
 
 
@@ -827,68 +842,69 @@ public function listedApprovedStudents($examCallId)
      * y además poder añadir alumnos a esa convocatoria si el alumno le ha pasado algo y no puede presentarse al examen, o el profesor ha decidido que no lo aprueba.
      */
     public function listPendingApprovalStudents($examCallId)
-{
-    $examCall = ExamCalls::with([
-        'examStudents.student.user',
-        'examStudents.examResultStatus'
-    ])->findOrFail($examCallId);
+    {
+        $examCall = ExamCalls::with([
+            'examStudents.student.user',
+            'examStudents.examResultStatus'
+        ])->findOrFail($examCallId);
 
-    $inside = $examCall->examStudents;
+        $inside = $examCall->examStudents;
 
-    // 🔹 Pendientes dentro
-    $pendingInside = $inside
-        ->filter(fn($s) =>
-            $s->exam_result_status_id == 1 &&
-            !$s->student_confirmed
-        )
-        ->values();
+        // 🔹 Pendientes dentro
+        $pendingInside = $inside
+            ->filter(
+                fn($s) =>
+                $s->exam_result_status_id == 1 &&
+                    !$s->student_confirmed
+            )
+            ->values();
 
-    // 🔹 Alumnos que SÍ tienen plaza (cualquier estado excepto 4)
-    $insideWithSeatIds = $inside
-        ->filter(fn($s) => $s->exam_result_status_id != 4)
-        ->pluck('student_id')
-        ->toArray();
+        // 🔹 Alumnos que SÍ tienen plaza (cualquier estado excepto 4)
+        $insideWithSeatIds = $inside
+            ->filter(fn($s) => $s->exam_result_status_id != 4)
+            ->pluck('student_id')
+            ->toArray();
 
-    // 🔹 Aptos fuera
-    $studentsReady = StudentSkillEvaluations::where('ready_for_exam', true)
-        ->with('studentProfile.user','studentProfile.town')
-        ->get()
-        ->pluck('studentProfile')
-        ->unique('id')
-        ->values();
+        // 🔹 Aptos fuera
+        $studentsReady = StudentSkillEvaluations::where('ready_for_exam', true)
+            ->with('studentProfile.user', 'studentProfile.town')
+            ->get()
+            ->pluck('studentProfile')
+            ->unique('id')
+            ->values();
 
-    $outsideReady = $studentsReady
-        ->filter(fn($s) => !in_array($s->id, $insideWithSeatIds))
-        ->map(fn($s) => [
-            'id' => $s->id,
-            'name' => $s->user->name,
-            'surname' => trim($s->user->surname1.' '.$s->user->surname2),
-            'town' => $s->town?->name,
-        ])
-        ->values();
+        $outsideReady = $studentsReady
+            ->filter(fn($s) => !in_array($s->id, $insideWithSeatIds))
+            ->map(fn($s) => [
+                'id' => $s->id,
+                'name' => $s->user->name,
+                'surname' => trim($s->user->surname1 . ' ' . $s->user->surname2),
+                'town' => $s->town?->name,
+            ])
+            ->values();
 
-    // 🔹 Rechazados dentro (estado 4)
-    $rejectedInside = $inside
-        ->filter(fn($s) => $s->exam_result_status_id == 4)
-        ->map(fn($s) => [
-            'id' => $s->student->id,
-            'name' => $s->student->user->name,
-            'surname' => trim($s->student->user->surname1.' '.$s->student->user->surname2),
-            'town' => $s->student->town?->name,
-        ])
-        ->values();
+        // 🔹 Rechazados dentro (estado 4)
+        $rejectedInside = $inside
+            ->filter(fn($s) => $s->exam_result_status_id == 4)
+            ->map(fn($s) => [
+                'id' => $s->student->id,
+                'name' => $s->student->user->name,
+                'surname' => trim($s->student->user->surname1 . ' ' . $s->student->user->surname2),
+                'town' => $s->student->town?->name,
+            ])
+            ->values();
 
-    // 🔹 Unir sin duplicados
-    $pendingOutside = $outsideReady
-        ->merge($rejectedInside)
-        ->unique('id')
-        ->values();
+        // 🔹 Unir sin duplicados
+        $pendingOutside = $outsideReady
+            ->merge($rejectedInside)
+            ->unique('id')
+            ->values();
 
-    return response()->json([
-        'pending_inside' => $pendingInside,
-        'pending_outside' => $pendingOutside,
-    ]);
-}
+        return response()->json([
+            'pending_inside' => $pendingInside,
+            'pending_outside' => $pendingOutside,
+        ]);
+    }
     /**
      * Función que permite a un profesor añadir a un estudiante específico a la lista de aprobados en una convocatoria de examen,
      * actualizando el estado de aprobación del estudiante y la fecha y hora de aprobación.

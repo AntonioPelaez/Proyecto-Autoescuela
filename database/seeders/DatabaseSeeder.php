@@ -25,6 +25,7 @@ class DatabaseSeeder extends Seeder
             DrivingSkillsSeeder::class,
             ExamCallStatusSeeder::class,
             ExamResultStatusSeeder::class,
+            ExpenseTypesSeeder::class,
         ]);
     }
 }
