@@ -17,15 +17,79 @@ class CuadroMandoVehiculosController extends Controller
      * - Rentabilidad
      * - Indicador rentable/no rentable
      */
-    public function resumenGeneral($vehicleId)
+public function resumenGeneral(Request $request, $vehicleId)
 {
-    // 1. Fecha de la primera clase impartida con este vehículo
+    // Normalizar fechas dd/mm/YYYY → YYYY-MM-DD
+    $from = $request->from ? Carbon::createFromFormat('d/m/Y', $request->from)->format('Y-m-d') : null;
+    $to   = $request->to   ? Carbon::createFromFormat('d/m/Y', $request->to)->format('Y-m-d') : null;
+
+    // Si hay rango completo → filtrar por periodo
+    if ($from && $to) {
+
+        $start = Carbon::parse($from)->startOfDay();
+        $end   = Carbon::parse($to)->endOfDay();
+
+        // Rango inválido
+        if ($start->gt($end)) {
+            return response()->json([
+                'vehicle_id'  => $vehicleId,
+                'no_data'     => true,
+                'period_from' => $request->from,
+                'period_to'   => $request->to,
+            ]);
+        }
+
+        // INGRESOS
+        $classCount = ClassSession::where('vehicle_id', $vehicleId)
+            ->where('status', 'completed')
+            ->whereBetween('session_date', [$start, $end])
+            ->count();
+
+        $income = $classCount * 25;
+
+        // GASTOS
+        $fuelExpenses = FuelLogs::where('vehicle_id', $vehicleId)
+            ->whereBetween('date', [$start, $end])
+            ->sum('amount');
+
+        // Opción B: filtrar por created_at
+        $otherExpenses = VehicleExpenses::where('vehicle_id', $vehicleId)
+            ->whereBetween('created_at', [$start, $end])
+            ->sum('amount');
+
+        $totalExpenses = $fuelExpenses + $otherExpenses;
+
+        // NO HAY DATOS EN EL PERIODO
+        if ($classCount == 0 && $fuelExpenses == 0 && $otherExpenses == 0) {
+            return response()->json([
+                'vehicle_id'  => $vehicleId,
+                'no_data'     => true,
+                'period_from' => $request->from,
+                'period_to'   => $request->to,
+            ]);
+        }
+
+        // SÍ HAY DATOS → devolver solo el periodo
+        return response()->json([
+            'vehicle_id'      => $vehicleId,
+            'period_from'     => $request->from,
+            'period_to'       => $request->to,
+            'classes_given'   => $classCount,
+            'income'          => $income,
+            'fuel_expenses'   => $fuelExpenses,
+            'other_expenses'  => $otherExpenses,
+            'total_expenses'  => $totalExpenses,
+            'profit'          => $income - $totalExpenses,
+            'is_profitable'   => ($income - $totalExpenses) > 0,
+        ]);
+    }
+
+    // ACUMULADO (solo si NO hay periodo)
     $firstClassDate = ClassSession::where('vehicle_id', $vehicleId)
         ->where('status', 'completed')
         ->orderBy('session_date', 'asc')
         ->value('session_date');
 
-    // Si nunca ha dado clases → no hay rentabilidad
     if (!$firstClassDate) {
         return response()->json([
             'vehicle_id'      => $vehicleId,
@@ -36,7 +100,6 @@ class CuadroMandoVehiculosController extends Controller
             'total_expenses'  => 0,
             'profit'          => 0,
             'is_profitable'   => false,
-            'status'          => 'No rentable',
             'since'           => null,
         ]);
     }
@@ -44,7 +107,6 @@ class CuadroMandoVehiculosController extends Controller
     $start = Carbon::parse($firstClassDate);
     $end = Carbon::now();
 
-    // 2. INGRESOS desde la primera clase
     $classCount = ClassSession::where('vehicle_id', $vehicleId)
         ->where('status', 'completed')
         ->whereBetween('session_date', [$start, $end])
@@ -52,7 +114,6 @@ class CuadroMandoVehiculosController extends Controller
 
     $income = $classCount * 25;
 
-    // 3. GASTOS desde la primera clase
     $fuelExpenses = FuelLogs::where('vehicle_id', $vehicleId)
         ->whereBetween('date', [$start, $end])
         ->sum('amount');
@@ -62,9 +123,6 @@ class CuadroMandoVehiculosController extends Controller
         ->sum('amount');
 
     $totalExpenses = $fuelExpenses + $otherExpenses;
-
-    // 4. RENTABILIDAD
-    $profit = $income - $totalExpenses;
 
     return response()->json([
         'vehicle_id'      => $vehicleId,
@@ -73,53 +131,13 @@ class CuadroMandoVehiculosController extends Controller
         'fuel_expenses'   => $fuelExpenses,
         'other_expenses'  => $otherExpenses,
         'total_expenses'  => $totalExpenses,
-        'profit'          => $profit,
-        'is_profitable'   => $profit > 0,
-        'status'          => $profit > 0 ? 'Rentable' : 'No rentable',
-        'since'           => $start->format('Y-m-d'),
+        'profit'          => $income - $totalExpenses,
+        'is_profitable'   => ($income - $totalExpenses) > 0,
+        'since'           => $start->format('d/m/Y'),
     ]);
 }
 
 
-    /**
-     * COSTE MENSUAL AUTOMÁTICO
-     * - Gastos de combustible del mes
-     * - Gastos menores del mes
-     * - Gasto total del mes
-     */
-   public function costeMensual(Request $request, $vehicleId)
-{
-    $request->validate([
-        'month' => 'nullable|date_format:Y-m'
-    ]);
-
-    $month = $request->month
-        ? Carbon::parse($request->month . '-01')
-        : Carbon::now()->startOfMonth();
-
-    $start = $month->copy()->startOfMonth();
-    $end   = $month->copy()->endOfMonth();
-
-    // Gasolina
-    $fuelExpenses = FuelLogs::where('vehicle_id', $vehicleId)
-        ->whereBetween('date', [$start, $end])
-        ->sum('amount') ?? 0;
-
-    // Gastos menores
-    $otherExpenses = VehicleExpenses::where('vehicle_id', $vehicleId)
-        ->whereBetween('created_at', [$start, $end])
-        ->sum('amount') ?? 0;
-
-    $totalExpenses = $fuelExpenses + $otherExpenses;
-
-    return response()->json([
-        'vehicle_id'     => $vehicleId,
-        'month'          => $start->format('Y-m'),
-        'fuel_expenses'  => $fuelExpenses,
-        'other_expenses' => $otherExpenses,
-        'total_expenses' => $totalExpenses,
-    ]);
-}
 /**
  * Funcionalidad que calcula los ingresos mensaules de las clases
  * que se han dado ese mes
