@@ -12,14 +12,17 @@ class VehicleExpenseController extends Controller
      * Listar todos los gastos del vehículo
      */
     public function index()
-    {
-        $expenses = VehicleExpenses::orderBy('created_at', 'desc')->get();
+{
+    $expenses = VehicleExpenses::with('vehicle')
+        ->orderBy('created_at', 'desc')
+        ->get();
 
-        return response()->json([
-            'count'    => $expenses->count(),
-            'expenses' => $expenses
-        ]);
-    }
+    return response()->json([
+        'count'    => $expenses->count(),
+        'expenses' => $expenses
+    ]);
+}
+
 
     /**
      * Crear un gasto menor
